@@ -1,0 +1,14 @@
+.git
+.venv
+data
+backups
+work
+outputs
+__pycache__
+*.sqlite3
+*.sqlite3-*
+.env
+.env.*
+!*.example
+*.png
+!public/*.png
