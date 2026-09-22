@@ -44,7 +44,8 @@ class ProductionSmsTest(unittest.TestCase):
 
     def test_rejects_wrong_username_missing_key_and_bad_number(self):
         cases = [
-            ({**self.env, 'AFRICASTALKING_PRODUCTION_USERNAME': 'sandbox'}, 'must be exactly'),
+            ({**self.env, 'AFRICASTALKING_PRODUCTION_USERNAME': 'sandbox'}, 'Sandbox credentials'),
+            ({**self.env, 'AFRICASTALKING_PRODUCTION_USERNAME': ''}, 'USERNAME is not configured'),
             ({**self.env, 'AFRICASTALKING_PRODUCTION_API_KEY': ''}, 'not configured'),
             ({**self.env, 'AFRICASTALKING_PRODUCTION_TEST_NUMBER': '0764426108'}, 'international format'),
         ]

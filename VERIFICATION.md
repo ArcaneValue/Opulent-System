@@ -2,7 +2,7 @@
 
 ## Version 1.2.2 checks
 
-The production SMS command is tested with an in-memory fake provider. Tests verify the fixed message and sole configured recipient, secret-free result, disabled-by-default lock, explicit confirmation requirement, exact production username, required key and international phone validation. These automated tests make no network request. A real production smoke test is performed only as a separately authorized operational step.
+The production SMS command is tested with an in-memory fake provider. Tests verify the fixed message and sole configured recipient, secret-free result, disabled-by-default lock, explicit confirmation requirement, production/sandbox separation, required key and international phone validation. These automated tests make no network request. A real production smoke test is performed only as a separately authorized operational step.
 
 ## Version 1.2.1 checks
 

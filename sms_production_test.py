@@ -8,7 +8,6 @@ import json
 import os
 import re
 
-EXPECTED_USERNAME = 'Opulent Condo'
 TEST_MESSAGE = 'Opulent Condo System production SMS test. No payment is due from this message.'
 
 
@@ -23,8 +22,8 @@ def production_config():
     enabled = os.environ.get('OPULENT_PRODUCTION_SMS_TEST_ENABLED', '').strip().lower()
     if enabled != 'true':
         raise ProductionSmsError('Production SMS test is locked. Set OPULENT_PRODUCTION_SMS_TEST_ENABLED=true temporarily.')
-    if username != EXPECTED_USERNAME:
-        raise ProductionSmsError(f'AFRICASTALKING_PRODUCTION_USERNAME must be exactly {EXPECTED_USERNAME}.')
+    if not username:
+        raise ProductionSmsError('AFRICASTALKING_PRODUCTION_USERNAME is not configured.')
     if username.lower() == 'sandbox':
         raise ProductionSmsError('Sandbox credentials cannot be used for the production test.')
     if not api_key:

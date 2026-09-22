@@ -2,7 +2,7 @@
 
 ## Version 1.2.2 guarded production SMS smoke test
 
-The working sandbox command remains unchanged. A separate production-only command requires distinct Railway credentials, the exact configured production username, one environment-configured recipient, a temporary enable switch and an explicit command-line confirmation. It accepts no recipient argument and cannot select application contacts. The automatic reminder worker still records simulated outcomes only.
+The working sandbox command remains unchanged. A separate production-only command requires distinct Railway credentials, rejects the sandbox username, uses one environment-configured recipient, and requires both a temporary enable switch and an explicit command-line confirmation. It accepts no recipient argument and cannot select application contacts. The automatic reminder worker still records simulated outcomes only.
 
 ## Version 1.2.1 Africa's Talking Sandbox smoke test
 
