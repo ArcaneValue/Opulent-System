@@ -1,4 +1,4 @@
-"""Opulent local pilot. Standard-library only; no external SMS calls."""
+"""Opulent billing backend. Reminder delivery remains simulated."""
 import calendar
 import csv
 import hashlib
@@ -28,7 +28,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get('OPULENT_DB', str(ROOT / 'data' / 'opulent.sqlite3')))
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
-VERSION = '1.2.0-pilot'
+VERSION = '1.2.1-pilot'
 LOCK = threading.RLock()
 FAILED_LOGINS = {}
 

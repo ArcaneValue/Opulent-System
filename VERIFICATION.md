@@ -1,5 +1,11 @@
 # Verification — pilot
 
+## Version 1.2.1 checks
+
+**35 automated tests passed**: 34 SQLite, HTTP/security, hosting and sandbox-hook tests plus the PostgreSQL billing/reminder workflow against a disposable PostgreSQL 16 container. The sandbox tests confirm a single fixed non-billing message and one recipient, and confirm rejection of live usernames, missing keys, malformed numbers and ambiguous provider responses. They use a fake SMS service and make no network request.
+
+Python compilation and JavaScript syntax checks passed. The Linux production Docker image, including the pinned Africa's Talking SDK and the standalone sandbox command, built successfully. No API key was stored and no SMS was sent. The automatic reminder worker remains simulation-only.
+
 ## Version 1.2 checks
 
 **32 automated tests passed**, including the complete SQLite suite and a live PostgreSQL 17 container workflow covering schema initialization, linked property/contact records, exact-money partial allocation, reminder queueing, simulated processing and JSON-safe state output. A clean SQLite administrator database was transferred to a separate PostgreSQL database and verified. The Linux production Docker image built successfully. JavaScript syntax passed.

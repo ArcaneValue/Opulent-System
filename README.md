@@ -1,6 +1,6 @@
 # Opulent Property Management
 
-Staff condominium-fee and rent billing system. Local development uses SQLite; hosted deployment uses PostgreSQL with separate Railway web and reminder-worker services. The responsive frontend is an installable PWA. **SMS simulation only.**
+Staff condominium-fee and rent billing system. Local development uses SQLite; hosted deployment uses PostgreSQL with separate Railway web and reminder-worker services. The responsive frontend is an installable PWA. **Reminder delivery remains simulation-only.** A separate command can send one fixed test SMS to the Africa's Talking Sandbox simulator.
 
 ## Run
 
@@ -35,10 +35,11 @@ Railway uses Docker, Gunicorn, PostgreSQL and a separate `worker.py` service. Se
 - `test_system.py`: financial, reminders, restore and HTTP security checks.
 - `test_postgres.py`: hosted PostgreSQL billing and reminder workflow check.
 - `worker.py`: dedicated hosted reminder scheduler.
+- `sms_sandbox.py`: guarded, one-message Africa's Talking Sandbox smoke test.
 - `tools/migrate_sqlite_to_postgres.py`: guarded one-time transfer tool.
 - `data/opulent.sqlite3`: created on startup; not source code.
 - `backups/`: administrator-created verified database backups.
 
-`OPULENT_PORT` and `OPULENT_DB` environment variables allow separate local test instances. The default local server binds only to 127.0.0.1. The optional hosted adapter enforces the configured HTTPS host/origin and uses Secure cookies. This remains a single-organization pilot, with production limitations described in the guides.
+`OPULENT_PORT` and `OPULENT_DB` environment variables allow separate local test instances. `AFRICASTALKING_USERNAME=sandbox` and `AFRICASTALKING_API_KEY` configure only the explicit sandbox test command; keys must stay outside source control. The automatic reminder worker never calls the provider. The default local server binds only to 127.0.0.1. The hosted adapter enforces the configured HTTPS host/origin and uses Secure cookies. This remains a single-organization pilot, with production limitations described in the guides.
 
 See `IMPLEMENTATION_NOTES.md` for implemented behavior, design departures and production work. Original architecture and concept documents remain reference materials. Follow `AGENTS.md` for further changes.

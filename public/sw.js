@@ -1,5 +1,5 @@
 // No personal records or API responses are cached. Local pilot remains online-first.
-const VERSION = 'opulent-1.2.0';
+const VERSION = 'opulent-1.2.1';
 self.addEventListener('install', () => {});
 self.addEventListener('activate', event => event.waitUntil(Promise.all([self.clients.claim(), caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('opulent-')).map(k => caches.delete(k))))])));
 self.addEventListener('message', event => { if(event.data === 'ACTIVATE') self.skipWaiting(); });

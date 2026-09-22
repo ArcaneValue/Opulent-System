@@ -27,9 +27,11 @@ Railway provides `PORT`. Never commit actual values. The setup token protects fi
 
 ```text
 DATABASE_URL=${{Postgres.DATABASE_URL}}
+AFRICASTALKING_USERNAME=sandbox
+AFRICASTALKING_API_KEY=YOUR_PRIVATE_SANDBOX_KEY
 ```
 
-The worker has no domain. It currently records simulated SMS outcomes only.
+The worker has no domain. Its reminder loop records simulated outcomes only. The Africa's Talking credentials are used solely when an administrator deliberately runs `python sms_sandbox.py +256...` inside the worker service. The command refuses any username other than `sandbox`, validates one international number and uses a fixed harmless message. Sandbox messages appear in Africa's Talking's simulator rather than on a real handset.
 
 ## Safe deployment
 
@@ -54,6 +56,8 @@ Never store databases, backups, exports, `.env` files, setup tokens, SMS credent
 
 ## SMS and recovery
 
-Railway does not create an SMS account. Select a provider, register the sender ID, keep credentials in Railway secrets, test authorized numbers and verify delivery callbacks before live sending. Until then, no phone is contacted.
+Railway does not create an SMS account. The prepared smoke test uses Africa's Talking Sandbox only. Keep its API key in Railway variables, never GitHub. Sign in to the Africa's Talking Sandbox simulator using the recipient number, then run `railway ssh --service "Opulent Worker" python sms_sandbox.py +256...` from the linked project folder. Replace `+256...` with that simulator number. This does not connect automatic reminders or contact a real handset.
+
+Live delivery remains a separate change: register the sender ID, add explicit live-mode controls, implement authenticated delivery callbacks and test authorized real numbers before enabling it.
 
 Use Railway PostgreSQL scheduled backups and practise restoring into staging. Code rollback does not reverse a database migration. Verify balances and automation settings before restarting a restored worker.

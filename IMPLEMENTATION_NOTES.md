@@ -1,5 +1,11 @@
 # Implementation notes — 1.1.0 pilot
 
+## Version 1.2.1 Africa's Talking Sandbox smoke test
+
+Inspection confirmed that no SMS provider existed: the reminder worker only marked current jobs `simulated`. A separate `sms_sandbox.py` command now reads `AFRICASTALKING_USERNAME` and `AFRICASTALKING_API_KEY` from the process environment. It refuses usernames other than the literal `sandbox`, rejects missing keys and malformed numbers, sends one fixed non-billing message to one simulator number, and returns only non-secret response metadata. It never queries contacts or joins the automatic reminder path.
+
+The official Africa's Talking Python SDK is pinned as a dependency. Placeholder variable names were added to `railway.env.example`; no key was committed. Unit tests use a fake SMS service and make no network request.
+
 ## Version 1.2 PostgreSQL and deployment preparation
 
 Hosted mode now uses `DATABASE_URL` with PostgreSQL while local startup remains on SQLite. The same validated billing functions run through a small parameter-binding compatibility layer. PostgreSQL receives an idempotent initial schema and migration marker. A guarded one-time transfer tool verifies SQLite integrity, refuses a populated destination, copies linked records in one transaction, advances identity sequences, clears sessions, cancels queued reminders and disables automation for review.
