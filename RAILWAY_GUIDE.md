@@ -56,7 +56,7 @@ Never store databases, backups, exports, `.env` files, setup tokens, SMS credent
 
 ## SMS and recovery
 
-Railway does not create an SMS account. The prepared smoke test uses Africa's Talking Sandbox only. Keep its API key in Railway variables, never GitHub. Sign in to the Africa's Talking Sandbox simulator using the recipient number, then run `railway ssh --service "Opulent Worker" python sms_sandbox.py +256...` from the linked project folder. Replace `+256...` with that simulator number. This does not connect automatic reminders or contact a real handset.
+Railway does not create an SMS account. The prepared smoke test uses Africa's Talking Sandbox only. Keep its API key in Railway variables, never GitHub. Sign in to the Africa's Talking Sandbox simulator using the recipient number. Railway SSH also requires a registered key: generate one once with `ssh-keygen -t ed25519 -C "opulent-railway"`, then register its public half with `railway ssh keys add --key "$HOME/.ssh/id_ed25519.pub" --name "Opulent PC"`. Run `railway ssh --service "Opulent Worker" python sms_sandbox.py +256...` from the linked project folder and replace `+256...` with the simulator number. This does not connect automatic reminders or contact a real handset.
 
 Live delivery remains a separate change: register the sender ID, add explicit live-mode controls, implement authenticated delivery callbacks and test authorized real numbers before enabling it.
 
