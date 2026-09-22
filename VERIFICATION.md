@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.2.2 checks
+
+The production SMS command is tested with an in-memory fake provider. Tests verify the fixed message and sole configured recipient, secret-free result, disabled-by-default lock, explicit confirmation requirement, exact production username, required key and international phone validation. These automated tests make no network request. A real production smoke test is performed only as a separately authorized operational step.
+
 ## Version 1.2.1 checks
 
 **35 automated tests passed**: 34 SQLite, HTTP/security, hosting and sandbox-hook tests plus the PostgreSQL billing/reminder workflow against a disposable PostgreSQL 16 container. The sandbox tests confirm a single fixed non-billing message and one recipient, and confirm rejection of live usernames, missing keys, malformed numbers and ambiguous provider responses. They use a fake SMS service and make no network request.

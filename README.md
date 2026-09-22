@@ -36,6 +36,7 @@ Railway uses Docker, Gunicorn, PostgreSQL and a separate `worker.py` service. Se
 - `test_postgres.py`: hosted PostgreSQL billing and reminder workflow check.
 - `worker.py`: dedicated hosted reminder scheduler.
 - `sms_sandbox.py`: guarded, one-message Africa's Talking Sandbox smoke test.
+- `sms_production_test.py`: separately locked, one-recipient production smoke test; never used by the reminder worker.
 - `tools/migrate_sqlite_to_postgres.py`: guarded one-time transfer tool.
 - `data/opulent.sqlite3`: created on startup; not source code.
 - `backups/`: administrator-created verified database backups.

@@ -60,4 +60,8 @@ Railway does not create an SMS account. The prepared smoke test uses Africa's Ta
 
 Live delivery remains a separate change: register the sender ID, add explicit live-mode controls, implement authenticated delivery callbacks and test authorized real numbers before enabling it.
 
+### Guarded production smoke test
+
+Production uses separate `AFRICASTALKING_PRODUCTION_USERNAME`, `AFRICASTALKING_PRODUCTION_API_KEY` and `AFRICASTALKING_PRODUCTION_TEST_NUMBER` variables on the worker. `OPULENT_PRODUCTION_SMS_TEST_ENABLED` must normally remain `false`. The standalone command has no recipient argument and does not read contacts or reminder jobs. For one authorized test, temporarily set the lock to `true`, run `python sms_production_test.py --confirm-send-one`, then immediately return the lock to `false`. This command does not enable automatic live reminders.
+
 Use Railway PostgreSQL scheduled backups and practise restoring into staging. Code rollback does not reverse a database migration. Verify balances and automation settings before restarting a restored worker.

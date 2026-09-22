@@ -1,5 +1,9 @@
 # Implementation notes — 1.1.0 pilot
 
+## Version 1.2.2 guarded production SMS smoke test
+
+The working sandbox command remains unchanged. A separate production-only command requires distinct Railway credentials, the exact configured production username, one environment-configured recipient, a temporary enable switch and an explicit command-line confirmation. It accepts no recipient argument and cannot select application contacts. The automatic reminder worker still records simulated outcomes only.
+
 ## Version 1.2.1 Africa's Talking Sandbox smoke test
 
 Inspection confirmed that no SMS provider existed: the reminder worker only marked current jobs `simulated`. A separate `sms_sandbox.py` command now reads `AFRICASTALKING_USERNAME` and `AFRICASTALKING_API_KEY` from the process environment. It refuses usernames other than the literal `sandbox`, rejects missing keys and malformed numbers, sends one fixed non-billing message to one simulator number, and returns only non-secret response metadata. It never queries contacts or joins the automatic reminder path.
