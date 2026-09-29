@@ -1,5 +1,13 @@
 # Verification — pilot
 
+## Version 1.3.0 EgoSMS checks
+
+**49 automated tests passed** on Windows (SQLite, HTTP/security, hosting, EgoSMS client, sandbox, production and live-path/webhook tests). The EgoSMS unit tests use an injected fake transport and make no network request. They cover international-number normalisation, the documented request payload, `Status` parsing, sender-ID and batch limits, credential validation, and the transport-versus-API failure split.
+
+The live-path tests patch the HTTP transport to confirm that an accepted send stores the `MsgFollowUpUniqueCode`, that a transport failure becomes `unknown` and is not retried, that an API rejection becomes `failed`, and that the delivery-report webhook rejects a wrong token and marks a matching message `delivered`.
+
+No live EgoSMS message was sent during automated testing. A real production smoke test remains a separately authorized operational step, and automatic live reminders stay disabled until `OPULENT_LIVE_SMS_ENABLED=true` is deliberately set.
+
 ## Version 1.2.2 checks
 
 The production SMS command is tested with an in-memory fake provider. Tests verify the fixed message and sole configured recipient, secret-free result, disabled-by-default lock, explicit confirmation requirement, production/sandbox separation, required key and international phone validation. These automated tests make no network request. A real production smoke test is performed only as a separately authorized operational step.

@@ -1,4 +1,4 @@
-"""Opulent billing backend. Reminder delivery remains simulated."""
+"""Opulent billing backend. Reminder delivery is simulated unless OPULENT_LIVE_SMS_ENABLED=true."""
 import calendar
 import csv
 import hashlib
@@ -28,7 +28,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get('OPULENT_DB', str(ROOT / 'data' / 'opulent.sqlite3')))
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
-VERSION = '1.2.2-pilot'
+VERSION = '1.3.0-egosms'
 LOCK = threading.RLock()
 FAILED_LOGINS = {}
 
@@ -327,6 +327,49 @@ def reminder_due(on_date, due_date, lead_days, repeat_days):
     return days_overdue == -lead_days or (days_overdue >= 0 and days_overdue % repeat_days == 0)
 
 
+def live_sms_enabled():
+    return os.environ.get('OPULENT_LIVE_SMS_ENABLED', '').strip().lower() == 'true'
+
+
+def sms_mode():
+    return 'live' if live_sms_enabled() else 'simulation'
+
+
+def deliver_message(message):
+    """Send one reminder through EgoSMS; returns (status, provider_ref, detail).
+
+    Transport failures become 'unknown' and are deliberately never retried
+    automatically. The outcome is reconciled through the follow-up code before
+    any resend, because EgoSMS offers no idempotency key.
+    """
+    import egosms
+    try:
+        result = egosms.send_one(
+            message['phone'], message['body'],
+            username=os.environ.get('EGOSMS_USERNAME', '').strip(),
+            api_key=os.environ.get('EGOSMS_API_KEY', '').strip(),
+            sender_id=os.environ.get('EGOSMS_SENDER_ID', egosms.DEFAULT_SENDER_ID),
+            endpoint=os.environ.get('EGOSMS_ENDPOINT', egosms.LIVE_ENDPOINT),
+        )
+    except egosms.EgoSmsTransportError:
+        return 'unknown', None, {}
+    except egosms.EgoSmsError as exc:
+        return 'failed', None, {'error': str(exc)[:200]}
+    return 'accepted', result['follow_up_code'], {'cost': result['cost']}
+
+
+def apply_delivery_report(c, payload):
+    """Record an EgoSMS Transaction Status report against the matching message."""
+    code = str(payload.get('MsgFollowUpUniqueCode', '')).strip()
+    outcome = str(payload.get('Status', '')).strip()
+    if not code:
+        return 0
+    status = 'delivered' if outcome.lower() == 'success' else 'failed'
+    updated = c.execute('UPDATE messages SET status=?,updated=? WHERE provider_ref=?', (status, stamp(), code)).rowcount
+    audit(c, 'egosms', 'delivery_' + status, {'code': code, 'outcome': outcome, 'updated': updated})
+    return updated
+
+
 def worker_tick():
     with connect(True) as c:
         s = settings(c)
@@ -347,13 +390,17 @@ def worker_tick():
                 continue
             fresh = preview_items(c, [message['charge_id']], message['penalty'], True)
             matching = next((item for item in fresh if item['contact_id'] == message['contact_id'] and item['phone'] == message['phone']), None)
+            mode, detail = 'simulation', {}
             if not matching or matching['balance'] != message['balance'] or matching['body'] != message['body'] or matching['phone'] != message['phone']:
                 status, ref = 'cancelled', None
+            elif live_sms_enabled():
+                mode = 'live'
+                status, ref, detail = deliver_message(message)
             else:
-                # Deliberately no provider transport. A simulated outcome is never labelled delivered.
+                # A simulated outcome is never labelled delivered.
                 status, ref = 'simulated', 'SIM-' + str(message['id'])
-            c.execute('UPDATE messages SET status=?,provider_ref=?,attempts=attempts+1,updated=? WHERE id=?', (status, ref, stamp(), message['id']))
-            audit(c, 'worker', 'message_' + status, {'message_id': message['id']})
+            c.execute('UPDATE messages SET status=?,provider_ref=?,mode=?,attempts=attempts+1,updated=? WHERE id=?', (status, ref, mode, stamp(), message['id']))
+            audit(c, 'worker', 'message_' + status, {'message_id': message['id'], **detail})
         c.execute('DELETE FROM sessions WHERE expires<?', (time.time(),))
         c.execute('DELETE FROM previews WHERE expires<?', (time.time(),))
 
@@ -369,7 +416,7 @@ def worker_loop(stop):
 
 def snapshot(c, user):
     payments = rows(c, '''SELECT p.*,u.label unit,COALESCE((SELECT SUM(amount) FROM allocations WHERE payment_id=p.id),0) allocated FROM payments p JOIN units u ON u.id=p.unit_id ORDER BY p.id DESC''')
-    return {'version': VERSION, 'database_engine': 'postgresql' if DATABASE_URL else 'sqlite', 'user': user, 'settings': settings(c), 'today': today(c).isoformat(), 'sms_mode': 'simulation',
+    return {'version': VERSION, 'database_engine': 'postgresql' if DATABASE_URL else 'sqlite', 'user': user, 'settings': settings(c), 'today': today(c).isoformat(), 'sms_mode': sms_mode(),
             'properties': rows(c, 'SELECT * FROM properties ORDER BY name'),
             'units': rows(c, 'SELECT u.*,p.name property FROM units u JOIN properties p ON p.id=u.property_id ORDER BY p.name,u.block,u.label'),
             'contacts': rows(c, 'SELECT c.*,u.label unit FROM contacts c JOIN units u ON u.id=c.unit_id ORDER BY c.name'),
@@ -491,7 +538,7 @@ def mutate(c, route, d, user):
         payload = {'charge_ids':ids,'penalty':penalty,'include_alternate':include_alternate,'items':items}
         c.execute('INSERT INTO previews(token,user_id,payload,expires) VALUES(?,?,?,?)', (token, user['id'], json.dumps(payload), time.time() + 600))
         s = settings(c)
-        return {'token': token, 'items': items, 'estimated_cost': sum(i['segments'] for i in items) * s['segment_price'], 'currency': s['currency'], 'expires_in': 600, 'mode': 'simulation'}
+        return {'token': token, 'items': items, 'estimated_cost': sum(i['segments'] for i in items) * s['segment_price'], 'currency': s['currency'], 'expires_in': 600, 'mode': sms_mode()}
     elif route == 'send':
         token = text(d, 'token', 100)
         preview = c.execute('SELECT * FROM previews WHERE token=? AND user_id=? AND expires>?', (token, user['id'], time.time())).fetchone()
@@ -619,6 +666,16 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get('Sec-Fetch-Site') == 'cross-site':
             raise Problem('Cross-site requests are not permitted.', 403)
 
+    def delivery_report(self, payload, token):
+        # EgoSMS Transaction Status webhook. The unguessable path token is the
+        # only credential; the report only ever matches an existing provider_ref.
+        expected = os.environ.get('EGOSMS_WEBHOOK_TOKEN', '')
+        if len(expected) < 24 or not hmac.compare_digest(token, expected):
+            raise Problem('Not found.', 404)
+        with connect(True) as c:
+            apply_delivery_report(c, payload)
+        self.reply({'ok': True})
+
     def do_GET(self):
         try:
             self.trusted_origin()
@@ -657,6 +714,10 @@ class Handler(BaseHTTPRequestHandler):
             self.trusted_origin()
             if self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
                 raise Problem('JSON requests only.', 415)
+            path = urlparse(self.path).path
+            if path.startswith('/webhooks/egosms/'):
+                self.delivery_report(d, path[len('/webhooks/egosms/'):].strip('/'))
+                return
             route = urlparse(self.path).path.removeprefix('/api/')
             if not self.path.startswith('/api/'):
                 raise Problem('Not found.', 404)
@@ -723,7 +784,7 @@ def main():
     server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
     stop = threading.Event()
     threading.Thread(target=worker_loop, args=(stop,), daemon=True).start()
-    print(f'Opulent {VERSION}: http://localhost:{port} — SMS SIMULATION ONLY', flush=True)
+    print(f'Opulent {VERSION}: http://localhost:{port} — SMS mode: {sms_mode()}', flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

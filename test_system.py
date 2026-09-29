@@ -11,6 +11,7 @@ from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
+import egosms
 import server
 
 
@@ -403,6 +404,92 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request('POST','/api/backup',{})[0],403)
         self.assertEqual(self.request('POST','/api/password',{'current_password':'TestingPassword123!','new_password':'NewTestingPassword123!'})[0],200)
         self.assertEqual(self.request('GET','/api/state')[0],401)
+
+
+class LiveSmsTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.previous = server.DB
+        server.DB = Path(self.temp.name) / 'live.sqlite3'
+        server.init_db()
+        self.user = {'id': 1, 'email': 'live@example.test', 'role': 'admin'}
+        with server.connect(True) as c:
+            c.execute("INSERT INTO users(id,name,email,password,role) VALUES(1,'Live','live@example.test',?,'admin')", (server.password_hash('TestingPassword123!'),))
+            server.mutate(c, 'properties', {'name':'Live building','address':'Fictional'}, self.user)
+            server.mutate(c, 'units', {'property_id':1,'block':'A','label':'A01'}, self.user)
+            server.mutate(c, 'contacts', {'unit_id':1,'name':'Live tenant','phone':'+256700000001','kind':'Tenant','notify':1,'billing_start':'2025-05-17'}, self.user)
+            server.mutate(c, 'charges', {'unit_id':1,'type_id':1,'amount':'350000','period':'2026-09','due':'2026-09-30','source':'Test'}, self.user)
+        self.http = server.ThreadingHTTPServer(('127.0.0.1',0), server.Handler)
+        self.thread = threading.Thread(target=self.http.serve_forever, daemon=True)
+        self.thread.start()
+
+    def tearDown(self):
+        self.http.shutdown()
+        self.http.server_close()
+        self.thread.join()
+        server.DB = self.previous
+        self.temp.cleanup()
+
+    def queue_one(self):
+        with server.connect(True) as c:
+            preview = server.mutate(c, 'preview', {'charge_ids':[1]}, self.user)
+            server.mutate(c, 'send', {'token': preview['token']}, self.user)
+
+    def message_row(self):
+        with server.connect() as c:
+            return c.execute('SELECT * FROM messages').fetchone()
+
+    def post(self, path, data):
+        conn = http.client.HTTPConnection('127.0.0.1', self.http.server_port, timeout=5)
+        conn.request('POST', path, json.dumps(data), {'Host':f'localhost:{self.http.server_port}','Content-Type':'application/json'})
+        response = conn.getresponse()
+        body = response.read()
+        conn.close()
+        return response.status, (json.loads(body) if body else None)
+
+    def test_live_send_records_acceptance_then_webhook_delivers(self):
+        env = {'OPULENT_LIVE_SMS_ENABLED':'true','EGOSMS_USERNAME':'api-user','EGOSMS_API_KEY':'api-key'}
+        with patch.dict(os.environ, env, clear=False):
+            self.queue_one()
+            with patch('egosms._http_post', return_value={'Status':'OK','Cost':35,'MsgFollowUpUniqueCode':'CODE-1'}):
+                server.worker_tick()
+            row = self.message_row()
+            self.assertEqual(row['status'], 'accepted')
+            self.assertEqual(row['provider_ref'], 'CODE-1')
+            self.assertEqual(row['mode'], 'live')
+        with server.connect(True) as c:
+            updated = server.apply_delivery_report(c, {'MsgFollowUpUniqueCode':'CODE-1','number':'256700000001','Status':'Success','deliveryDate':'2026-08-05T08:58:23.679Z'})
+        self.assertEqual(updated, 1)
+        self.assertEqual(self.message_row()['status'], 'delivered')
+
+    def test_transport_failure_is_unknown_and_not_retried(self):
+        env = {'OPULENT_LIVE_SMS_ENABLED':'true','EGOSMS_USERNAME':'api-user','EGOSMS_API_KEY':'api-key'}
+        with patch.dict(os.environ, env, clear=False):
+            self.queue_one()
+            with patch('egosms._http_post', side_effect=egosms.EgoSmsTransportError('no response')):
+                server.worker_tick()
+                server.worker_tick()
+        row = self.message_row()
+        self.assertEqual(row['status'], 'unknown')
+        self.assertIsNone(row['provider_ref'])
+        self.assertEqual(row['attempts'], 1)
+
+    def test_provider_rejection_is_failed(self):
+        env = {'OPULENT_LIVE_SMS_ENABLED':'true','EGOSMS_USERNAME':'api-user','EGOSMS_API_KEY':'api-key'}
+        with patch.dict(os.environ, env, clear=False):
+            self.queue_one()
+            with patch('egosms._http_post', return_value={'Status':'Failed','Message':'Wrong Username or Password.'}):
+                server.worker_tick()
+        self.assertEqual(self.message_row()['status'], 'failed')
+
+    def test_delivery_report_webhook_requires_token_and_updates_message(self):
+        token = 'w' * 40
+        with server.connect(True) as c:
+            c.execute("INSERT INTO messages(charge_id,contact_id,phone,body,balance,dedupe,status,mode,actor,provider_ref,created,updated) VALUES(1,1,'256700000001','body',1,'webhook-test','accepted','live','t','CODE-1','now','now')")
+        with patch.dict(os.environ, {'EGOSMS_WEBHOOK_TOKEN': token}, clear=False):
+            self.assertEqual(self.post('/webhooks/egosms/' + 'x' * 40, {'MsgFollowUpUniqueCode':'CODE-1','Status':'Success'})[0], 404)
+            self.assertEqual(self.post('/webhooks/egosms/' + token, {'MsgFollowUpUniqueCode':'CODE-1','number':'256700000001','Status':'Success','deliveryDate':'2026-08-05T08:58:23.679Z'})[0], 200)
+        self.assertEqual(self.message_row()['status'], 'delivered')
 
 
 if __name__ == '__main__':

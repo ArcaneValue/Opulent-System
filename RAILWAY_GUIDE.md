@@ -1,6 +1,6 @@
 # Deploy Opulent through GitHub and Railway
 
-Opulent 1.2 uses PostgreSQL when hosted. Local development continues to use SQLite. SMS remains simulation-only until a provider is selected and separately authorized.
+Opulent 1.3 uses PostgreSQL when hosted. Local development continues to use SQLite. SMS delivery is simulated until `OPULENT_LIVE_SMS_ENABLED=true`; live sending uses EgoSMS (Pahappa Comms) and is authorized separately.
 
 ## Services
 
@@ -27,11 +27,24 @@ Railway provides `PORT`. Never commit actual values. The setup token protects fi
 
 ```text
 DATABASE_URL=${{Postgres.DATABASE_URL}}
-AFRICASTALKING_USERNAME=sandbox
-AFRICASTALKING_API_KEY=YOUR_PRIVATE_SANDBOX_KEY
+EGOSMS_USERNAME=YOUR_COMMS_API_USERNAME
+EGOSMS_API_KEY=YOUR_PRIVATE_COMMS_API_KEY
+EGOSMS_SENDER_ID=EgoSMS
+EGOSMS_ENDPOINT=https://comms.egosms.co/api/v1/json/
+EGOSMS_SANDBOX_USERNAME=YOUR_SANDBOX_API_USERNAME
+EGOSMS_SANDBOX_API_KEY=YOUR_PRIVATE_SANDBOX_API_KEY
+OPULENT_LIVE_SMS_ENABLED=false
 ```
 
-The worker has no domain. Its reminder loop records simulated outcomes only. The Africa's Talking credentials are used solely when an administrator deliberately runs `python sms_sandbox.py +256...` inside the worker service. The command refuses any username other than `sandbox`, validates one international number and uses a fixed harmless message. Sandbox messages appear in Africa's Talking's simulator rather than on a real handset.
+The worker has no domain. With `OPULENT_LIVE_SMS_ENABLED=false` its reminder loop records simulated outcomes only. Set it to `true` only after a live send is separately authorized. The `EGOSMS_SANDBOX_*` credentials are used solely when an administrator deliberately runs `python sms_sandbox.py 256...` inside the worker service. The command always targets the EgoSMS sandbox endpoint (`https://comms-test.pahappa.net/api/v1/json/`), validates one international number and uses a fixed harmless message.
+
+Add these on the web service only:
+
+```text
+EGOSMS_WEBHOOK_TOKEN=A-PRIVATE-RANDOM-VALUE-AT-LEAST-24-CHARACTERS
+```
+
+Register `https://YOUR-FINAL-DOMAIN/webhooks/egosms/EGOSMS_WEBHOOK_TOKEN` as the Transaction Status webhook in EgoSMS Settings → API Settings. The token is the only credential on that public route.
 
 ## Safe deployment
 
@@ -56,12 +69,14 @@ Never store databases, backups, exports, `.env` files, setup tokens, SMS credent
 
 ## SMS and recovery
 
-Railway does not create an SMS account. The prepared smoke test uses Africa's Talking Sandbox only. Keep its API key in Railway variables, never GitHub. Sign in to the Africa's Talking Sandbox simulator using the recipient number. Railway SSH also requires a registered key: generate one once with `ssh-keygen -t ed25519 -C "opulent-railway"`, then register its public half with `railway ssh keys add --key "$HOME/.ssh/id_ed25519.pub" --name "Opulent PC"`. Run `railway ssh --service "Opulent Worker" python sms_sandbox.py +256...` from the linked project folder and replace `+256...` with the simulator number. This does not connect automatic reminders or contact a real handset.
+Railway does not create an SMS account. EgoSMS (Pahappa) provides the sandbox and live APIs. Keep its credentials in Railway variables, never GitHub.
 
-Live delivery remains a separate change: register the sender ID, add explicit live-mode controls, implement authenticated delivery callbacks and test authorized real numbers before enabling it.
+Railway SSH requires a registered key: generate one once with `ssh-keygen -t ed25519 -C "opulent-railway"`, then register its public half with `railway ssh keys add --key "$HOME/.ssh/id_ed25519.pub" --name "Opulent PC"`. From the linked project folder run `railway ssh --service "Opulent Worker" python sms_sandbox.py 256...` and replace `256...` with the sandbox recipient number in international format without a leading `+` or `00`. This does not connect automatic reminders or contact a real handset.
+
+Live reminders remain a separate change: register the sender ID, keep `OPULENT_LIVE_SMS_ENABLED=false` until a live send is authorized, configure the Transaction Status webhook, and test authorized real numbers before enabling it.
 
 ### Guarded production smoke test
 
-Production uses separate `AFRICASTALKING_PRODUCTION_USERNAME`, `AFRICASTALKING_PRODUCTION_API_KEY` and `AFRICASTALKING_PRODUCTION_TEST_NUMBER` variables on the worker. `OPULENT_PRODUCTION_SMS_TEST_ENABLED` must normally remain `false`. The standalone command has no recipient argument and does not read contacts or reminder jobs. For one authorized test, temporarily set the lock to `true`, run `python sms_production_test.py --confirm-send-one`, then immediately return the lock to `false`. This command does not enable automatic live reminders.
+Production sending uses `EGOSMS_USERNAME`, `EGOSMS_API_KEY` and a single `EGOSMS_PRODUCTION_TEST_NUMBER` on the worker. `OPULENT_PRODUCTION_SMS_TEST_ENABLED` must normally remain `false`. The standalone command has no recipient argument and does not read contacts or reminder jobs. For one authorized test, temporarily set the lock to `true`, run `railway ssh --service "Opulent Worker" python sms_production_test.py --confirm-send-one`, then immediately return the lock to `false`. This command does not enable automatic live reminders.
 
 Use Railway PostgreSQL scheduled backups and practise restoring into staging. Code rollback does not reverse a database migration. Verify balances and automation settings before restarting a restored worker.

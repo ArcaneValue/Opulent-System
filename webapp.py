@@ -44,7 +44,7 @@ def create_app(start_worker=None):
                 c.execute('SELECT 1').fetchone()
             if worker is not None and not worker.is_alive():
                 raise RuntimeError('Worker stopped')
-            return {'status':'ok','version':server.VERSION,'sms_mode':'simulation'}
+            return {'status':'ok','version':server.VERSION,'sms_mode':server.sms_mode()}
         except Exception:
             return {'status':'unhealthy'},503
 

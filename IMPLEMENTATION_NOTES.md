@@ -1,4 +1,12 @@
-# Implementation notes — 1.1.0 pilot
+# Implementation notes — 1.3.0 EgoSMS integration
+
+## Version 1.3.0 EgoSMS provider
+
+The Africa's Talking layer was replaced by an EgoSMS (Pahappa Comms) client in `egosms.py`. It POSTs the documented `SendSms` JSON to `https://comms.egosms.co/api/v1/json/` (sandbox: `https://comms-test.pahappa.net/api/v1/json/`), converts numbers to EgoSMS's international format without a leading `+` or `00`, and reads the response `Status` field because the API returns HTTP 200 even on failure.
+
+Failures are split: a transport failure (no response) records the message as `unknown` and is never retried automatically, because EgoSMS documents no idempotency key; an API rejection records `failed`. An accepted message stores the returned `MsgFollowUpUniqueCode` as its provider reference and is only marked `delivered` when the Transaction Status webhook (`POST /webhooks/egosms/<token>`) reports `Success`. Automatic reminders send through EgoSMS only when `OPULENT_LIVE_SMS_ENABLED=true`; otherwise they remain `simulated`.
+
+The guarded sandbox and production smoke tests were rewritten for EgoSMS, `africastalking` was removed from `requirements.txt`, and the delivery-report webhook was added.
 
 ## Version 1.2.2 guarded production SMS smoke test
 

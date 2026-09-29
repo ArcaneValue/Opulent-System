@@ -1,14 +1,17 @@
-"""Explicit one-message Africa's Talking Sandbox smoke test.
+"""Explicit one-message EgoSMS sandbox smoke test.
 
-This module is intentionally separate from reminder processing. It cannot use live
-credentials or select customer records from the Opulent database.
+This module is intentionally separate from reminder processing. It always uses
+the EgoSMS sandbox endpoint, cannot use live credentials, and cannot select
+customer records from the Opulent database.
 """
 import argparse
 import json
 import os
-import re
+
+import egosms
 
 TEST_MESSAGE = 'Opulent Condo System sandbox test. No payment reminder was sent.'
+ENDPOINT = egosms.SANDBOX_ENDPOINT
 
 
 class SandboxSmsError(RuntimeError):
@@ -16,51 +19,40 @@ class SandboxSmsError(RuntimeError):
 
 
 def sandbox_credentials():
-    username = os.environ.get('AFRICASTALKING_USERNAME', '').strip()
-    api_key = os.environ.get('AFRICASTALKING_API_KEY', '').strip()
-    if username != 'sandbox':
-        raise SandboxSmsError('AFRICASTALKING_USERNAME must be exactly sandbox. Live SMS is disabled.')
-    if not api_key:
-        raise SandboxSmsError('AFRICASTALKING_API_KEY is not configured.')
+    username = os.environ.get('EGOSMS_SANDBOX_USERNAME', '').strip()
+    api_key = os.environ.get('EGOSMS_SANDBOX_API_KEY', '').strip()
+    if not username or not api_key:
+        raise SandboxSmsError('EGOSMS_SANDBOX_USERNAME and EGOSMS_SANDBOX_API_KEY must both be configured.')
     return username, api_key
 
 
 def validate_phone(phone):
-    phone = str(phone).strip()
-    if not re.fullmatch(r'\+[1-9]\d{7,14}', phone):
-        raise SandboxSmsError('Use an international simulator number, for example +256 followed by digits.')
-    return phone
-
-
-def send_test_sms(phone, sms_service=None):
-    """Send one fixed message to the Sandbox simulator and return safe metadata."""
-    username, api_key = sandbox_credentials()
-    phone = validate_phone(phone)
-    if sms_service is None:
-        import africastalking
-        africastalking.initialize(username, api_key)
-        sms_service = africastalking.SMS
-    response = sms_service.send(TEST_MESSAGE, [phone])
     try:
-        recipients = response['SMSMessageData']['Recipients']
-        recipient = recipients[0]
-        if len(recipients) != 1:
-            raise ValueError()
-        return {
-            'environment': 'sandbox',
-            'number': str(recipient.get('number', phone)),
-            'status': str(recipient.get('status', 'Unknown')),
-            'status_code': int(recipient.get('statusCode', -1)),
-            'message_id': str(recipient.get('messageId', '')),
-            'cost': str(recipient.get('cost', '')),
-        }
-    except (KeyError, IndexError, TypeError, ValueError) as exc:
-        raise SandboxSmsError('Africa\'s Talking returned an unexpected sandbox response.') from exc
+        return egosms.normalize_number(phone)
+    except egosms.EgoSmsError as exc:
+        raise SandboxSmsError('Use an international simulator number without + or 00, for example 256 followed by digits.') from exc
+
+
+def send_test_sms(phone, transport=None):
+    """Send one fixed message to the EgoSMS sandbox and return safe metadata."""
+    username, api_key = sandbox_credentials()
+    number = validate_phone(phone)
+    try:
+        result = egosms.send_one(
+            number, TEST_MESSAGE,
+            username=username, api_key=api_key,
+            sender_id=os.environ.get('EGOSMS_SENDER_ID', egosms.DEFAULT_SENDER_ID),
+            endpoint=ENDPOINT, transport=transport,
+        )
+    except egosms.EgoSmsError as exc:
+        raise SandboxSmsError(str(exc)) from exc
+    return {'environment': 'sandbox', 'number': number, 'status': result['status'],
+            'cost': result['cost'], 'follow_up_code': result['follow_up_code']}
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Send one fixed SMS to the Africa\'s Talking Sandbox simulator.')
-    parser.add_argument('phone', help='Simulator phone in international format, such as +256...')
+    parser = argparse.ArgumentParser(description='Send one fixed SMS to the EgoSMS sandbox endpoint.')
+    parser.add_argument('phone', help='Simulator phone without + or 00, such as 256...')
     args = parser.parse_args()
     try:
         print(json.dumps(send_test_sms(args.phone), indent=2))

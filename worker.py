@@ -13,7 +13,7 @@ def main():
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     signal.signal(signal.SIGINT, lambda *_: stop.set())
-    print(f'Opulent {server.VERSION} reminder worker started — SMS SIMULATION ONLY', flush=True)
+    print(f'Opulent {server.VERSION} reminder worker started — SMS mode: {server.sms_mode()}', flush=True)
     server.worker_loop(stop)
 
 
