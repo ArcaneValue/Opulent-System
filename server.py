@@ -28,7 +28,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get('OPULENT_DB', str(ROOT / 'data' / 'opulent.sqlite3')))
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
-VERSION = '1.3.0-egosms'
+VERSION = '1.4.0-pilot'
 LOCK = threading.RLock()
 FAILED_LOGINS = {}
 
@@ -682,7 +682,7 @@ class Handler(BaseHTTPRequestHandler):
             path = urlparse(self.path).path
             if path == '/api/status':
                 with connect() as c:
-                    self.reply({'setup_required': not bool(c.execute('SELECT 1 FROM users LIMIT 1').fetchone()), 'setup_token_required':bool(os.environ.get('OPULENT_PUBLIC_URL')), 'version': VERSION})
+                    self.reply({'setup_required': not bool(c.execute('SELECT 1 FROM users LIMIT 1').fetchone()), 'version': VERSION})
             elif path in ('/api/state', '/api/export'):
                 with connect() as c:
                     user = self.session(c)
@@ -727,10 +727,6 @@ class Handler(BaseHTTPRequestHandler):
                     if route == 'setup':
                         if c.execute('SELECT 1 FROM users LIMIT 1').fetchone():
                             raise Problem('Setup has already been completed.', 409)
-                        if os.environ.get('OPULENT_PUBLIC_URL'):
-                            expected_token = os.environ.get('OPULENT_SETUP_TOKEN','')
-                            if len(expected_token)<24 or not hmac.compare_digest(str(d.get('setup_token','')),expected_token):
-                                raise Problem('A valid deployment setup code is required.',403)
                         email = text(d, 'email', 200).lower()
                         if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
                             raise Problem('Enter a valid staff email.')

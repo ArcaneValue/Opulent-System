@@ -21,8 +21,6 @@ def create_app(start_worker=None):
         raise RuntimeError('OPULENT_PUBLIC_URL must be an HTTPS origin without a path.')
     if (os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('RAILWAY_ENVIRONMENT_NAME')) and not public:
         raise RuntimeError('Set OPULENT_PUBLIC_URL to the Railway HTTPS domain.')
-    if public and len(os.environ.get('OPULENT_SETUP_TOKEN',''))<24:
-        raise RuntimeError('Set a private OPULENT_SETUP_TOKEN of at least 24 characters.')
     if public and not (os.environ.get('DATABASE_URL') or (os.environ.get('OPULENT_DB') and os.environ.get('OPULENT_BACKUPS'))):
         raise RuntimeError('Configure DATABASE_URL for PostgreSQL, or both OPULENT_DB and OPULENT_BACKUPS for the SQLite pilot.')
     server.init_db()

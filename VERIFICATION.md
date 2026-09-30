@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.4.0 checks
+
+The hosting tests were updated for the removed deployment setup code: first-run setup now succeeds without a setup code and is refused with HTTP 409 once an administrator exists, and the removed `OPULENT_SETUP_TOKEN` validation no longer raises. The full SQLite, HTTP/security, hosting, EgoSMS, sandbox and production suites pass, and JavaScript syntax was checked with `node --check`. Automated tests send no live SMS.
+
 ## Version 1.3.0 EgoSMS checks
 
 **49 automated tests passed** on Windows (SQLite, HTTP/security, hosting, EgoSMS client, sandbox, production and live-path/webhook tests). The EgoSMS unit tests use an injected fake transport and make no network request. They cover international-number normalisation, the documented request payload, `Status` parsing, sender-ID and batch limits, credential validation, and the transport-versus-API failure split.

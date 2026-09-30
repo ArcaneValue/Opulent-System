@@ -1,6 +1,6 @@
 # Deploy Opulent through GitHub and Railway
 
-Opulent 1.3 uses PostgreSQL when hosted. Local development continues to use SQLite. SMS delivery is simulated until `OPULENT_LIVE_SMS_ENABLED=true`; live sending uses EgoSMS (Pahappa Comms) and is authorized separately.
+Opulent 1.4 uses PostgreSQL when hosted. Local development continues to use SQLite. SMS delivery is simulated until `OPULENT_LIVE_SMS_ENABLED=true`; live sending uses EgoSMS (Pahappa Comms) and is authorized separately.
 
 ## Services
 
@@ -18,10 +18,9 @@ Both application services use the same private `DATABASE_URL`. Set `OPULENT_EXTE
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 OPULENT_EXTERNAL_WORKER=1
 OPULENT_PUBLIC_URL=https://YOUR-FINAL-DOMAIN
-OPULENT_SETUP_TOKEN=A-PRIVATE-RANDOM-VALUE-AT-LEAST-24-CHARACTERS
 ```
 
-Railway provides `PORT`. Never commit actual values. The setup token protects first-administrator registration.
+Railway provides `PORT`. Never commit actual values. The first administrator account is created once on the deployed site; after that, staff sign in and administrators add further accounts in Settings.
 
 ## Worker variables
 

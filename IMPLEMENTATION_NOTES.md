@@ -1,4 +1,10 @@
-# Implementation notes — 1.3.0 EgoSMS integration
+# Implementation notes — 1.4.0 staff experience
+
+## Version 1.4.0 in-app tutorials, live wording and open setup
+
+In-app tutorials were added for every screen. A **"? Help"** button on each page opens a short, task-based walkthrough (what the page is for, common tasks and practical tips), and the User Guide page lists a tutorial for every screen. Reminder wording is now driven by the live/test mode, so labels no longer claim messages are simulated while live sending is on.
+
+The sign-in and first-run setup screen gained a **"Show password"** toggle. The private deployment setup code was removed: the environment check, the `setup_token` request field and the `/api/status` flag are gone, so the first administrator is created directly on the deployed site. `webapp.py` no longer requires `OPULENT_SETUP_TOKEN`. Because the first administrator can now be created by anyone who reaches the URL before setup is complete, that account should be created immediately after deployment.
 
 ## Version 1.3.0 EgoSMS provider
 
