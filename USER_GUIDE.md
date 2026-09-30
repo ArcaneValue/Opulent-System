@@ -45,9 +45,9 @@ The currency is locked after you create financial records so changing a label ca
 
 ## 4. Register properties and units
 
-Open **Properties & Units → Add property** and enter its name and address/location. Then choose **Add unit**, select the property, and enter its block and unit label, for example Block A / A01.
+Open **Properties & Units → Add property** and enter its name and address/location. Then choose **Add unit**, type the property name (a new name creates the property automatically), enter the owner's name if known, and a unit label such as A01.
 
-The combination of property, block and unit label must be unique. Use **Deactivate** for a unit you no longer bill. Its history remains, and future automated charges/reminders are skipped while inactive.
+Each unit label must be unique within its property. Use **Deactivate** for a unit you no longer bill. Its history remains, and future automated charges/reminders are skipped while inactive.
 
 ## 5. Register tenants, owners and phone numbers
 

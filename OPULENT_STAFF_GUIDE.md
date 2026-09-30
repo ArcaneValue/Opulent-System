@@ -56,8 +56,8 @@ Then **Reminders** turns unpaid charges into text messages.
 
 ### Add a property and its units
 1. **Properties & Units → Add property** → name and address/location.
-2. **Add unit** → choose the property, enter a block (e.g. A) and a unit label (e.g. A01).
-   The combination of property + block + label must be unique.
+2. **Add unit** → type the **property name** (suggestions appear as you type; a new name creates the property automatically), the **owner's name** (optional), and a **unit label** (e.g. A01).
+   Each unit label must be unique within its property.
 3. Use **Deactivate** for a unit you no longer bill — its history stays.
 
 ### Register tenants and owners
@@ -122,7 +122,11 @@ Automatic reminders use **primary phone numbers only** and pause during **quiet 
 
 ---
 
-## 6. Passwords & security
+## 6. Print a statement
+
+Open **Statements** in the side menu, choose a unit, and you'll see every charge and payment for that unit with the running balance. Click **Print / Save as PDF** to print it or save it as a PDF to send to the owner or tenant.
+
+## 7. Passwords & security
 
 - Use **at least 12 characters**, and a **different password for each person**.
 - The system blocks duplicate emails and reused passwords.
@@ -132,7 +136,7 @@ Automatic reminders use **primary phone numbers only** and pause during **quiet 
 
 ---
 
-## 7. Quick daily routine
+## 8. Quick daily routine
 
 1. **Sign in** and check the **Dashboard** — “Accounts requiring attention” shows who owes money.
 2. **Record payments** as money comes in.
@@ -141,7 +145,7 @@ Automatic reminders use **primary phone numbers only** and pause during **quiet 
 
 ---
 
-## 8. Need help?
+## 9. Need help?
 
 - Click **? Help** on any screen for a short walkthrough.
 - Open **User Guide** for the full list of walkthroughs.

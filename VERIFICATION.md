@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.5.0 checks
+
+New tests confirm that adding a unit with a new property name creates the property and stores the owner, and that a duplicate unit label in the same property is still refused. The Add unit form, unit list and filters were updated for the typed property and the owner. The full suite (53 tests) passes and JavaScript syntax is checked with `node --check`. The Statements page renders charges, payments and balances and prints through the browser; automated tests do not print. Automated tests send no live SMS.
+
 ## Version 1.4.2 checks
 
 New tests confirm that a cross-site page load and status request are allowed while a cross-site state-changing request is refused, and that self-service registration creates an administrator account while rejecting a duplicate email and a reused password. The full suite passes and JavaScript syntax is checked with `node --check`. Automated tests send no live SMS.
