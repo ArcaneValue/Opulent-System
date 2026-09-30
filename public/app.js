@@ -39,7 +39,7 @@ function authScreen(mode){
 const navigation=[['Dashboard','◈'],['Properties & Units','▤'],['Contacts','♙'],['Charges','▣'],['Payments','▧'],['Reminders','♧'],['Reports','▥'],['Statements','▦'],['Settings','⚙'],['Guided Demo','▷'],['User Guide','?']];
 function render(){
   const subtitles={'Dashboard':'Your billing and reminder workspace','Properties & Units':'Manage buildings and the units within them','Contacts':'Tenants and owners · multiple contacts per unit','Charges':'Condominium fees, rent and historical balances','Payments':'Record payments, inspect credit and reverse mistakes','Reminders':sendingLive()?'Preview and send reminders by SMS':'Preview reminders · test mode (no SMS)','Reports':'Balances, exports and administrative audit history','Statements':'A printable charge and payment statement for one unit','Settings':'Staff access, billing preferences and reminder timing','Guided Demo':'Follow one fictional account from registration to an overdue reminder','User Guide':'A practical guide to using your system'};
-  $('#app').innerHTML=`<div class="shell"><aside class="sidebar"><div class="brand">OPULENT<small>Property management</small></div><nav class="nav" aria-label="Main navigation">${navigation.map(([name,symbol])=>`<button data-page="${name}" class="${page===name?'active':''}" ${page===name?'aria-current="page"':''}><span class="symbol">${symbol}</span>${name}</button>`).join('')}</nav><div class="sidebar-foot">Staff access only<br>Clients receive SMS<br>Version ${esc(state.version)}</div></aside><main class="main"><header class="topbar"><span class="mode">${sendingLive()?'LIVE SMS · REAL TEXTS SENT':'TEST MODE · NO SMS SENT'}</span><div class="identity"><span>${esc(state.user.name)} · ${esc(state.user.role)}</span>${button('logout','Sign out')}</div></header><div class="content"><div class="heading"><div><h1>${page}</h1><div class="muted">${subtitles[page]}</div></div><div class="actions">${headingActions()}</div></div>${body()}</div></main></div>`;
+  $('#app').innerHTML=`<div class="shell"><aside class="sidebar"><div class="brand">OPULENT<small>Property management</small></div><nav class="nav" aria-label="Main navigation">${navigation.map(([name,symbol])=>`<button data-page="${name}" class="${page===name?'active':''}" ${page===name?'aria-current="page"':''}><span class="symbol">${symbol}</span>${name}</button>`).join('')}</nav><div class="sidebar-foot">Staff access only<br>Clients receive SMS<br>Auto-refreshes every 5 min<br>Version ${esc(state.version)}</div></aside><main class="main"><header class="topbar"><span class="mode">${sendingLive()?'LIVE SMS · REAL TEXTS SENT':'TEST MODE · NO SMS SENT'}</span><div class="identity"><span>${esc(state.user.name)} · ${esc(state.user.role)}</span>${button('logout','Sign out')}</div></header><div class="content"><div class="heading"><div><h1>${page}</h1><div class="muted">${subtitles[page]}</div></div><div class="actions">${headingActions()}</div></div>${body()}</div></main></div>`;
   if(page==='Charges') updateCharges();
   if(page==='Reminders') updateReminderSelection();
   if(page==='Statements') bindStatement();
@@ -71,22 +71,126 @@ function payments(){return '<div class="hint">Payments cover the oldest outstand
 function reminders(){return '<div class="hint warning">'+(sendingLive()?'Live sending is ON. Review recipients, periods, text and estimated cost before confirming — these messages go to real phones.':'Test mode: no SMS is sent. Review recipients, periods, text and estimated cost before confirming.')+'</div>'+panel('Select charges to remind',filters('r')+'<div id="reminder-table"></div>',button('select-all','Select outstanding'))+(writable()?panel('Manual notice and recipients',`<label for="penalty">Penalty notice (optional · overdue charges only)<textarea id="penalty" maxlength="300" placeholder="Enter the notice you want staff to communicate"></textarea></label><p class="small muted">This wording is added only to selected charges that are already overdue. It is never added automatically, and it does not deactivate a card or apply a financial penalty.</p>${button('penalty-example','Use elevator-card example')}<label class="check"><input id="include-alternate" type="checkbox">Also notify the registered alternate numbers for this manual reminder</label><p class="small muted">Primary numbers are selected by default. Alternate numbers appear separately in the preview. Automatic reminders use primary numbers only.</p>`):'')+panel('Message history',table(['Created','Recipient','Period / message','Status','Mode','Reference'],state.messages,m=>tr([esc(m.created.replace('T',' ').slice(0,19)),esc(m.phone),`<div class="text-wrap">${esc(m.body)}</div>`,badge(m.status,messageTone(m.status)),esc(m.mode),esc(m.provider_ref||'—')])))+`<p class="small muted">Automatic reminders: ${state.settings.automatic?'enabled':'disabled'}. The server checks every 15 seconds. ${button('refresh','Refresh status')}</p>`;}
 function updateReminderSelection(){$('#reminder-table').innerHTML=table(['','Unit','Category','Period','Due','Charge','Paid','Remaining','Status'],filtered('r').filter(c=>c.remaining>0),c=>chargeRow(c,true));}
 function reports(){return panel('Balances by unit',table(['Property','Unit','Billed','Paid against charges','Remaining','Unallocated credit'],state.units,u=>{const charges=state.charges.filter(c=>c.unit_id===u.id),sum=k=>charges.reduce((n,c)=>n+c[k],0),credit=state.payments.filter(p=>p.unit_id===u.id&&!p.reversed).reduce((n,p)=>n+p.amount-p.allocated,0);return tr([esc(u.property),esc(u.label),currency(sum('amount')),currency(sum('paid')),currency(sum('remaining')),currency(credit)]);}))+(admin()?panel('Audit history · latest 200 events',table(['Time (UTC)','Staff','Action','Detail'],state.audit,a=>tr([esc(a.created),esc(a.actor),esc(a.action),`<div class="text-wrap">${esc(a.detail)}</div>`]))):'');}
-let statementUnit=0;
-function statements(){
-  const units=state.units.filter(u=>u.active);
-  const selected=units.find(u=>u.id===statementUnit)||units[0];
-  const chooser=select('statement-unit','Choose a unit',units.map(u=>[u.id,u.property+' · '+u.label]),true,selected?selected.id:'');
-  if(!selected) return panel('Statement',chooser+empty('No units yet','Register a property and unit first.'),button('print-statement','Print / Save as PDF'));
-  const charges=state.charges.filter(c=>c.unit_id===selected.id);
-  const payments=state.payments.filter(p=>p.unit_id===selected.id&&!p.reversed);
-  const sum=(arr,k)=>arr.reduce((n,x)=>n+x[k],0);
-  const credit=payments.reduce((n,p)=>n+p.amount-p.allocated,0);
-  const chargeRows=charges.map(ch=>tr([esc(ch.type),esc(ch.period),esc(ch.due),currency(ch.amount),currency(ch.paid),currency(ch.remaining)])).join('');
-  const paymentRows=payments.map(p=>tr([esc(p.paid_on),esc(p.reference),currency(p.amount),currency(p.amount-p.allocated)])).join('');
-  const statement=`<div id="statement" class="statement"><h2>Opulent Condominium Statement</h2><p><b>${esc(selected.property)}</b> · Unit ${esc(selected.label)}${selected.owner?' · Owner: '+esc(selected.owner):''}</p><p class="small muted">Statement date ${esc(state.today)} · Currency ${esc(state.settings.currency)}</p><h3>Charges</h3>${charges.length?`<table><thead><tr><th>Category</th><th>Period</th><th>Due</th><th>Charged</th><th>Paid</th><th>Remaining</th></tr></thead><tbody>${chargeRows}</tbody></table>`:'<p class="muted">No charges recorded.</p>'}<h3>Payments received</h3>${payments.length?`<table><thead><tr><th>Date</th><th>Reference</th><th>Amount</th><th>Unallocated</th></tr></thead><tbody>${paymentRows}</tbody></table>`:'<p class="muted">No payments recorded.</p>'}<div class="totals"><span>Total charged: ${currency(sum(charges,'amount'))}</span><span>Total paid: ${currency(sum(charges,'paid'))}</span><span>Balance due: ${currency(sum(charges,'remaining'))}</span><span>Credit: ${currency(credit)}</span></div><p class="small muted">Reversed payments are excluded. Balances are as at the statement date. Generated by Opulent.</p></div>`;
-  return panel('Unit statement',chooser,button('print-statement','Print / Save as PDF'))+statement;
+let statementDraft=null, statementDirty=false, statementSourceUnit=0;
+function amountText(v){return (v/100).toLocaleString('en-US',{maximumFractionDigits:2});}
+function statementLink(token){return location.origin+'/s/'+token;}
+function area(name,label,value='',full=true){return `<label class="${full?'full':''}">${label}<textarea id="${name}" name="${name}">${esc(value)}</textarea></label>`;}
+function numberOptions(){
+  const seen=new Set(),out=[];
+  (state.contacts||[]).forEach(c=>{
+    [c.phone,c.alternate_phone].forEach(p=>{
+      if(p&&!seen.has(p)){seen.add(p);out.push([p,(c.name||'Contact')+(c.unit?' — '+c.unit:'')+' ('+p+')']);}
+    });
+  });
+  return out;
 }
-function bindStatement(){const s=$('#statement-unit');if(s)s.addEventListener('change',()=>{const v=+s.value;if(v){statementUnit=v;render();}});}
+function blankStatement(){
+  const columns=['Quarter 1\nJan - Mar','Quarter 2\nApr - Jun','Quarter 3\nJul - Sep','Quarter 4\nOct - Dec'];
+  const labels=['Expected Payment','Payment received (UGX)','Balance per quarter','Cumulative Amount Due (UGX)'];
+  return {id:0,token:'',title:'CONDO FEES STATEMENT FOR '+state.today.slice(0,4),client:'',unit_label:'',monthly_fee:'',period:'',total_received:'',total_due:'',expires:'',
+    columns:columns,rows:labels.map(l=>({label:l,cells:columns.map(()=>'')})),
+    notes:['Kindly settle the outstanding balance to avoid penalties and service interruptions.','For inquiries, contact the Property Management Office.'],
+    payment:['Direct at Stanbic Bank: A/C No.: 9030026224704, A/C Name: Opulent Properties Ltd.','FlexiPay Merchant Code: 283797']};
+}
+function statementFromRow(s){
+  const row=s||{};
+  return {id:row.id||0,token:row.token||'',title:row.title||'',client:row.client||'',unit_label:row.unit_label||'',monthly_fee:row.monthly_fee||'',period:row.period||'',total_received:row.total_received||'',total_due:row.total_due||'',expires:row.expires||'',
+    columns:JSON.parse(row.columns_json||'[]'),rows:JSON.parse(row.rows_json||'[]'),notes:JSON.parse(row.notes_json||'[]'),payment:JSON.parse(row.payment_json||'[]')};
+}
+function captureStatement(){
+  const d=statementDraft;if(!d)return;
+  const val=id=>{const el=$('#'+id);return el?el.value:'';};
+  d.title=val('st-title');d.client=val('st-client');d.unit_label=val('st-unit');d.monthly_fee=val('st-fee');d.period=val('st-period');d.total_received=val('st-received');d.total_due=val('st-due');d.expires=val('st-expires');
+  d.columns=d.columns.map((c,i)=>val('st-col-'+i));
+  d.rows=d.rows.map((r,ri)=>({label:val('st-row-'+ri),cells:d.columns.map((_,ci)=>val('st-cell-'+ri+'-'+ci))}));
+  d.notes=val('st-notes').split('\n').map(s=>s.trim()).filter(Boolean);
+  d.payment=val('st-payment').split('\n').map(s=>s.trim()).filter(Boolean);
+}
+function fillFromRecords(){
+  captureStatement();
+  const unit=state.units.find(u=>u.id===statementSourceUnit);
+  if(!unit){toast('Choose a unit to fill from first.');return;}
+  const found=String(statementDraft.title||'').match(/\d{4}/);
+  const year=found?found[0]:(state.today||'').slice(0,4);
+  const charges=state.charges.filter(c=>c.unit_id===unit.id&&String(c.due||'').slice(0,4)===year);
+  const quarter=due=>Math.floor((parseInt(String(due||'01').slice(5,7),10)-1)/3);
+  const expected=[0,0,0,0],received=[0,0,0,0],remaining=[0,0,0,0],has=[false,false,false,false];
+  charges.forEach(c=>{const i=quarter(c.due);has[i]=true;expected[i]+=c.amount;received[i]+=c.paid;remaining[i]+=c.remaining;});
+  let running=0;const cumulative=remaining.map(v=>{running+=v;return running;});
+  const cell=(values,i)=>has[i]?amountText(values[i]):'N/A';
+  statementDraft.columns=['Quarter 1\nJan - Mar','Quarter 2\nApr - Jun','Quarter 3\nJul - Sep','Quarter 4\nOct - Dec'];
+  statementDraft.rows=[
+    {label:'Expected Payment',cells:expected.map(cell)},
+    {label:'Payment received (UGX)',cells:received.map(cell)},
+    {label:'Balance per quarter',cells:remaining.map(cell)},
+    {label:'Cumulative Amount Due (UGX)',cells:cumulative.map(cell)}];
+  statementDraft.client=unit.owner||statementDraft.client;
+  statementDraft.unit_label=unit.label||'';
+  statementDraft.title='CONDO FEES STATEMENT FOR '+year+': Unit No: '+(unit.label||'');
+  statementDraft.period='Quarter 1, Quarter 2, Quarter 3, Quarter 4 ('+year+')';
+  statementDraft.total_received=amountText(received.reduce((a,b)=>a+b,0));
+  statementDraft.total_due=state.settings.currency+' '+amountText(cumulative[3]||0);
+  statementDirty=true;
+  toast('Filled from '+(unit.property||'')+' '+unit.label+'. Edit anything before saving.');
+}
+function previewStatement(){
+  const d=statementDraft;
+  const head=d.columns.map(c=>`<th>${esc(c).replace(/\n/g,'<br>')}</th>`).join('');
+  const body=d.rows.map(r=>`<tr><th>${esc(r.label)}</th>${r.cells.map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('');
+  $('#modal').innerHTML=`<header><h2>Statement preview</h2><button class="close" data-action="close" aria-label="Close dialog">×</button></header><div class="statement"><div class="brand-dark">OPULENT<small>Unlocking property opportunities</small></div><h1>${esc(d.title)}</h1><div class="f"><span>Client</span><b>${esc(d.client)}</b></div><div class="f"><span>Monthly Condo fee</span><b>${esc(d.monthly_fee)}</b></div><div class="f"><span>Statement Period</span><b>${esc(d.period)}</b></div><div class="f"><span>Total Payment Received</span><b>${esc(d.total_received)}</b></div><div class="f"><span>Total Amount Due</span><b>${esc(d.total_due)}</b></div><table><thead><tr><th></th>${head}</tr></thead><tbody>${body}</tbody></table><div class="notes"><b>NOTES:</b><ol>${d.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ol><div class="pay">${d.payment.map(p=>`<div>${esc(p)}</div>`).join('')}</div></div></div><footer>${button('close','Close')}</footer>`;
+  $('#modal').showModal();
+}
+async function sendStatement(){
+  captureStatement();
+  const custom=($('#st-custom')?.value||'').trim();
+  const phone=custom||($('#st-number')?.value||'');
+  if(!phone){toast('Choose a registered number or type one.');return;}
+  if(!statementDraft.id){
+    const saved=await api('statement-save',{statement:statementDraft});
+    statementDraft.id=saved.id;statementDraft.token=saved.token;
+  }
+  const sent=await api('statement-send',{id:statementDraft.id,phone:phone});
+  toast('Statement sent to '+sent.phone+' — '+sent.status+'.');
+  await reload();
+}
+function statements(){
+  if(!statementDraft) statementDraft=blankStatement();
+  const d=statementDraft;
+  const head=d.columns.map((c,i)=>`<th><textarea class="cell" id="st-col-${i}" rows="2">${esc(c)}</textarea></th>`).join('');
+  const body=d.rows.map((r,ri)=>`<tr><th><input class="cell" id="st-row-${ri}" value="${esc(r.label)}"></th>${d.columns.map((_,ci)=>`<td><input class="cell" id="st-cell-${ri}-${ci}" value="${esc(r.cells[ci]||'')}"></td>`).join('')}</tr>`).join('');
+  const saved=state.statements||[];
+  const loader=select('st-load','Load a saved statement',[['','New / unsaved'],...saved.map(s=>[s.id,((s.title||'Statement').slice(0,40))+' · '+(s.unit_label?s.unit_label+' ':'')+'('+String(s.token||'').slice(0,6)+')'])],false,d.id||'');
+  const source=select('st-source',"Fill from a unit's records",[['','Choose a unit'],...state.units.map(u=>[u.id,unitName(u)])],false,statementSourceUnit||'');
+  const builder=panel('Statement builder',
+    '<div class="hint">Every field is editable. The default layout is 5 rows by 5 columns. Save to keep it, then send it.</div>'+
+    `<div class="filters">${loader}${source}${button('st-fill','Fill from records')}${button('st-new','New statement')}</div>`+
+    `<div class="form">${field('st-title','Statement title','text',d.title,true,false)}${field('st-client','Client name','text',d.client,false,false)}${field('st-unit','Unit label','text',d.unit_label,false,false)}${field('st-fee','Monthly condo fee','text',d.monthly_fee,false,false)}${field('st-period','Statement period','text',d.period,false,false)}${field('st-received','Total payment received','text',d.total_received,false,false)}${field('st-due','Total amount due','text',d.total_due,false,false)}${field('st-expires','Link expiry (optional)','date',d.expires,false,false)}</div>`+
+    `<div class="statement"><table class="editable"><thead><tr><th>Quarters</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`+
+    `<div class="actions">${button('st-add-row','+ Row')}${button('st-add-col','+ Column')}</div>`+
+    `<div class="form">${area('st-notes','Notes (one per line)',d.notes.join('\n'))}${area('st-payment','Payment details (one per line)',d.payment.join('\n'))}</div>`,
+    button('st-save','Save')+button('st-preview','Preview',true));
+  const send=panel('Send this statement',
+    `<div class="filters">${select('st-number','Registered numbers',[['','Choose a number'],...numberOptions()],false,'')}${field('st-custom','Or a custom number (e.g. 0772 494 627)','text','',false,false)}${button('st-send','Send SMS',true)}</div>`+
+    '<p class="small muted">'+(sendingLive()?'The SMS contains a link and is sent to a real phone.':'Test mode: the SMS is recorded but not sent.')+' '+(d.id?('Link: '+esc(statementLink(d.token))):'Save the statement first to create its link.')+'</p>');
+  const history=panel('Statement history',table(['Sent','Recipient','Statement','Status','Mode','Reference'],state.statement_sends||[],r=>tr([esc(String(r.created||'').replace('T',' ').slice(0,19)),esc(r.phone),esc(r.statement_unit||r.statement_title||''),badge(r.status,messageTone(r.status)),esc(r.mode),esc(r.provider_ref||'—')])));
+  return builder+send+history;
+}
+function bindStatement(){
+  const load=$('#st-load');
+  if(load)load.addEventListener('change',()=>{const id=+load.value;statementDraft=id?statementFromRow((state.statements||[]).find(s=>s.id===id)):blankStatement();statementDirty=false;render();});
+  const source=$('#st-source');
+  if(source)source.addEventListener('change',()=>{statementSourceUnit=+source.value;});
+  ['st-title','st-client','st-unit','st-fee','st-period','st-received','st-due','st-expires','st-notes','st-payment'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('input',()=>{statementDirty=true;});});
+  document.querySelectorAll('.statement .cell').forEach(el=>el.addEventListener('input',()=>{statementDirty=true;}));
+}
+function autoRefresh(){
+  if(!state||document.hidden)return;
+  if($('#modal').open)return;
+  if(document.querySelector('input:focus, textarea:focus, select:focus'))return;
+  if(page==='Statements'&&statementDirty)return;
+  reload().catch(()=>{});
+}
+setInterval(autoRefresh, 300000);
 function guidedDemo(){
   const dueDate=new Date(state.today+'T12:00:00Z');dueDate.setUTCDate(dueDate.getUTCDate()-20);const due=dueDate.toISOString().slice(0,10),period=due.slice(0,7);
   const notice="Your Pacific Victoria elevator access card may be deactivated under the property's policy if the overdue payment remains unpaid.";
@@ -102,7 +206,7 @@ const tutorials={
 'Payments':{intro:'Record money you have received. Payments cover a unit’s oldest unpaid charges first, across all categories.',tasks:[['Record a payment','Click Record payment: choose the unit, the amount, the date received and a receipt or bank reference.'],['Understand allocation','The amount is applied oldest due date first. Anything left over stays as account credit and covers future charges.'],['Fix a mistake','Click Reverse, give a reason and save. The original entry stays in history; record the correct payment separately.']],tips:['Future payment dates are rejected.','After a connection error, retry the same form — a brand-new form could create a duplicate entry.']},
 'Reminders':{intro:'Preview and then send payment reminders to the contacts of unpaid charges.',tasks:[['Choose who to remind','Filter by month, unit, category or overdue, then tick the charges, or click Select outstanding.'],['Add your own wording','Type a notice in “Penalty notice” to add your own sentence to overdue charges (up to 300 characters).'],['Send','Click Preview selected, review each recipient, number, message and estimated cost, then confirm.'],['Check the result','Click Refresh status after about 15 seconds. Message history shows each attempt and its status.']],tips:['Automatic reminders always use primary numbers only; alternate numbers are manual-only.','If a balance or contact changes after preview, confirmation is refused — preview again.','Status meanings: accepted = the provider took the message; delivered = the handset received it; failed and unknown need attention.']},
 'Reports':{intro:'Balances by unit, plus the audit history for administrators.',tasks:[['See balances per unit','“Balances by unit” shows billed, paid against charges, remaining and any unallocated credit.'],['Export to a spreadsheet','Click Export balances to download a CSV you can open in Excel.'],['Review activity','Administrators see the latest 200 audit events: who did what, and when.']],tips:['Remaining is always derived from charges minus non-reversed allocations, so it stays current.']},
-'Statements':{intro:'A printable statement for one unit, showing its charges, payments and balance.',tasks:[['Choose a unit','Pick the unit in the box at the top. The statement updates straight away.'],['Print or save as PDF','Click Print / Save as PDF, then choose your printer or a “Save as PDF” destination.'],['Hand it to the owner or tenant','The sheet lists each charge, each payment and the balance due.']],tips:['Reversed payments are excluded.','Balances are shown as at today’s date.']},
+'Statements':{intro:'Build a statement, send it by SMS as a link, and keep a history of what you sent.',tasks:[['Choose or build','Pick a saved statement from the list, or start a new one. Every field and table cell is editable.'],['Fill from records (optional)','Choose a unit and click Fill from records to copy its quarterly charges and payments into the table — then edit anything.'],['Save and preview','Click Save to keep it, and Preview to see exactly what the tenant will see.'],['Send','Choose a registered number (or type one like 0772 494 627) and press Send SMS. The tenant gets a link that opens the statement in any browser.'],['Check the history','The Statement history table below lists every send with its status.']],tips:['The link works in any browser and needs no login for the tenant.','Save the statement before sending so it has a link.','Links are permanent unless you set an expiry date.']},
 'Settings':{intro:'Organisation preferences, reminder timing, staff accounts, your password and backups.',tasks:[['Set currency and timezone','Edit settings: currency, country, UTC offset and the price per SMS segment.'],['Turn automation on or off','“Automatic billing + reminders” controls whether the server sends on a schedule. Off means you send manually.'],['Choose reminder timing','Days before the due date, the overdue repeat interval, and quiet hours when nothing is sent automatically.'],['Add a staff member','Click Add staff, choose a role and an initial password.'],['Change your password','Click Change my password. This signs out all of your sessions.']],tips:['Currency is locked once financial records exist.','Automatic reminders use primary numbers only and skip quiet hours.','For the hosted system, database backups are managed by the hosting platform.']}
 };
 function openHelp(page){
@@ -166,6 +270,13 @@ document.addEventListener('click',async e=>{
     if(action==='help-page'){openHelp(target.dataset.page);return;}
     if(action==='toggle-password'){document.querySelectorAll('input.pw').forEach(i=>i.type=target.checked?'text':'password');return;}
     if(action==='print-statement'){window.print();return;}
+    if(action==='st-new'){statementDraft=blankStatement();statementDirty=false;statementSourceUnit=0;render();return;}
+    if(action==='st-add-row'){captureStatement();statementDraft.rows.push({label:'',cells:statementDraft.columns.map(()=>'')});statementDirty=true;render();return;}
+    if(action==='st-add-col'){captureStatement();statementDraft.columns.push('Quarter '+(statementDraft.columns.length+1));statementDraft.rows.forEach(r=>r.cells.push(''));statementDirty=true;render();return;}
+    if(action==='st-fill'){fillFromRecords();render();return;}
+    if(action==='st-preview'){captureStatement();previewStatement();return;}
+    if(action==='st-save'){target.disabled=true;try{captureStatement();const saved=await api('statement-save',{statement:statementDraft});statementDraft.id=saved.id;statementDraft.token=saved.token;statementDirty=false;await reload();toast('Statement saved.');}catch(err){toast(err.message);}finally{target.disabled=false;}return;}
+    if(action==='st-send'){target.disabled=true;try{await sendStatement();}catch(err){toast(err.message);}finally{target.disabled=false;}return;}
     if(action==='select-all'){document.querySelectorAll('input[name=charge]').forEach(i=>i.checked=true);return;}
     if(action==='preview'){await previewSelected();return;}
     if(action==='confirm-send'){target.disabled=true;try{const result=await api('send',{token:preview.token});$('#modal').close();await reload();toast(sendingLive()?`${result.queued} message(s) queued for sending. Refresh after 15 seconds.`:`${result.queued} test message(s) queued (no SMS sent). Refresh after 15 seconds.`);}catch(err){$('#preview-error').textContent=err.message;}finally{target.disabled=false;}return;}

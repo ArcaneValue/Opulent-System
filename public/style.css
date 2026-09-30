@@ -8,3 +8,14 @@
 .statement th,.statement td{text-align:left;border-bottom:1px solid #e6edf2;padding:7px 6px;font-size:14px}
 .statement .totals{display:flex;flex-wrap:wrap;gap:22px;margin-top:18px;font-weight:600}
 @media print{body *{visibility:hidden}#statement,#statement *{visibility:visible}#statement{position:absolute;left:0;top:0;width:100%;border:0;margin:0;padding:0}}
+.statement .cell{width:100%;border:1px solid #e2e9ef;border-radius:6px;padding:7px;font-size:14px;margin:0;background:#fff}
+.statement textarea.cell{min-height:46px;resize:vertical}
+.statement table.editable th:first-child{width:230px}
+.statement .brand-dark{font:600 20px Georgia,serif;letter-spacing:2px;color:#102c42}
+.statement .brand-dark small{display:block;font:400 11px Segoe UI,sans-serif;letter-spacing:0;color:#6b7e8e;margin-top:4px}
+.statement h1{font-size:19px;margin:18px 0 12px}
+.statement .f{display:flex;gap:12px;font-size:14px;margin:3px 0}
+.statement .f span{min-width:190px;color:#6b7e8e}
+.statement .notes{border:1px solid #ccd9e3;border-radius:8px;padding:14px;margin-top:16px}
+.statement .notes li{margin:6px 0;font-size:14px}
+.statement .pay{margin-top:10px;font-size:14px;line-height:1.8}

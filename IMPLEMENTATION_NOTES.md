@@ -1,4 +1,8 @@
-# Implementation notes — 1.5.0 units and statements
+# Implementation notes — 1.6.0 statements by SMS
+
+## Version 1.6.0 statement builder, SMS links, history and auto-refresh
+
+The Statements page was rebuilt as a builder matching the Opulent Properties quarterly layout: an editable header, an editable table (default 5 rows by 5 columns, with add/remove), editable notes and payment details, Save and Preview, an optional "Fill from a unit's records" action, and an optional link expiry. A saved statement gets an unguessable **permanent token**. The Send panel offers every registered contact number plus a custom number (local `0772…` or international), and sending uses the existing EgoSMS path, recording each attempt in a **Statement history** table. The tenant opens `/s/<token>` in any browser with **no login** to see a read-only, printable statement. New `statements` and `statement_sends` tables are created on startup for both SQLite and PostgreSQL. The app also **refreshes its data every five minutes**, pausing while a dialog is open, while a field has focus, or while a statement edit is unsaved.
 
 ## Version 1.5.0 owner on the unit, and printed statements
 

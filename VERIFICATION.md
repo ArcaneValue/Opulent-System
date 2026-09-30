@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.6.0 checks
+
+New tests cover saving a statement, rendering the public statement page, a missing token returning 404, normalising local and international phone numbers, an expired link, and recording a send in the history. The public statement page needs no login. The full suite (55 tests) passes and JavaScript syntax is checked with `node --check`. Statement sends follow the live/test switch; automated tests send no live SMS.
+
 ## Version 1.5.0 checks
 
 New tests confirm that a unit stores the owner's name and that a duplicate unit label in the same property is refused. The Add unit form, unit list and filters show the owner in place of the block. The full suite (53 tests) passes and JavaScript syntax is checked with `node --check`. The Statements page renders charges, payments and balances and prints through the browser; automated tests do not print. Automated tests send no live SMS.

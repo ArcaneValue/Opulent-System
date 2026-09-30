@@ -122,9 +122,19 @@ Automatic reminders use **primary phone numbers only** and pause during **quiet 
 
 ---
 
-## 6. Print a statement
+## 6. Build and send a statement
 
-Open **Statements** in the side menu, choose a unit, and you'll see every charge and payment for that unit with the running balance. Click **Print / Save as PDF** to print it or save it as a PDF to send to the owner or tenant.
+Open **Statements** in the side menu.
+
+1. Fill in the header — title, client, unit, monthly fee, period, totals.
+2. Edit the table. Every cell is editable; use **+ Row** / **+ Column** to change its size. The default is 5 rows by 5 columns.
+3. Optionally choose a unit and click **Fill from records** to copy its real quarterly charges and payments into the table, then edit anything.
+4. Add your **Notes** and **Payment details** (one per line).
+5. Click **Save**, then **Preview** to see what the tenant will see.
+6. In **Send this statement**, pick a registered number or type one (e.g. `0772 494 627`), then click **Send SMS**. The tenant receives a link that opens the statement in any browser — no login needed.
+7. **Statement history** below lists every send and its status.
+
+Links are permanent unless you set an expiry date. The app refreshes itself every five minutes, so colleagues' new entries appear without signing out.
 
 ## 7. Passwords & security
 

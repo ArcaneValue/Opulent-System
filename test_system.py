@@ -343,6 +343,33 @@ class FinancialTests(unittest.TestCase):
         with self.assertRaises(sqlite3.IntegrityError):
             self.mutate('units', {'property_id':1,'label':'B02'})
 
+    def test_statement_save_public_page_and_send_history(self):
+        statement = {'title':'CONDO FEES STATEMENT FOR 2026: Unit No: A303','client':'Connie','unit_label':'A303','monthly_fee':'UGX 250,000','period':'Quarter 1','total_received':'0','total_due':'UGX 750,000','expires':'',
+                     'columns':['Quarter 1','Quarter 2','Quarter 3','Quarter 4'],
+                     'rows':[{'label':'Expected Payment','cells':['N/A','N/A','750,000','']},{'label':'Balance per quarter','cells':['N/A','N/A','750,000','']}],
+                     'notes':['Settle the balance.'],'payment':['Stanbic Bank 9030026224704']}
+        saved = self.mutate('statement-save', {'statement': statement})
+        self.assertTrue(saved['token'])
+        with server.connect() as c:
+            row = c.execute('SELECT * FROM statements WHERE id=?', (saved['id'],)).fetchone()
+            page = server.statement_page(row)
+            self.assertIn('CONDO FEES STATEMENT', page)
+            self.assertIn('Stanbic Bank', page)
+        self.assertEqual(server.normalize_phone('0772 494 627'), '+256772494627')
+        self.assertEqual(server.normalize_phone('+256772494627'), '+256772494627')
+        self.assertEqual(server.normalize_phone('00256772494627'), '+256772494627')
+        with self.assertRaises(server.Problem):
+            server.normalize_phone('abc')
+        sent = self.mutate('statement-send', {'id': saved['id'], 'phone': '0772494627'})
+        self.assertEqual((sent['phone'], sent['status']), ('+256772494627', 'simulated'))
+        with server.connect() as c:
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM statement_sends').fetchone()[0], 1)
+            self.assertEqual(len(server.snapshot(c, self.user)['statement_sends']), 1)
+        self.mutate('statement-save', {'statement': {**statement, 'id': saved['id'], 'expires': '2000-01-01'}})
+        with server.connect() as c:
+            row = c.execute('SELECT * FROM statements WHERE id=?', (saved['id'],)).fetchone()
+            self.assertTrue(row['expires'] < server.today(c).isoformat())
+
     def test_staff_email_and_password_reuse_are_refused(self):
         self.mutate('staff', {'name':'Alpha','email':'alpha@example.test','password':'AlphaPassword123!','role':'admin'})
         with self.assertRaises(server.Problem):
@@ -431,6 +458,17 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request('GET','/api/status',headers={'Sec-Fetch-Site':'cross-site'})[0],200)
         self.setup()
         self.assertEqual(self.request('POST','/api/properties',{'name':'X','address':'Y'},{'Sec-Fetch-Site':'cross-site'})[0],403)
+
+    def test_public_statement_page_needs_no_login(self):
+        self.setup()
+        status, saved = self.request('POST','/api/statement-save',{'statement':{'title':'STATEMENT TITLE','client':'Connie','unit_label':'A303','monthly_fee':'UGX 1','period':'Q1','total_received':'0','total_due':'UGX 0','columns':['Q1'],'rows':[{'label':'Row','cells':['1']}],'notes':['Note'],'payment':['Bank']}})
+        self.assertEqual(status,200)
+        self.request('POST','/api/logout',{})
+        status, page = self.request('GET','/s/'+saved['token'])
+        text = page if isinstance(page,str) else page.decode('utf-8')
+        self.assertEqual(status,200)
+        self.assertIn('STATEMENT TITLE', text)
+        self.assertEqual(self.request('GET','/s/doesnotexist')[0],404)
 
     def test_self_service_registration_creates_an_administrator(self):
         self.setup()
