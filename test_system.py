@@ -370,6 +370,17 @@ class FinancialTests(unittest.TestCase):
             row = c.execute('SELECT * FROM statements WHERE id=?', (saved['id'],)).fetchone()
             self.assertTrue(row['expires'] < server.today(c).isoformat())
 
+    def test_statement_send_reports_a_reason_when_it_fails(self):
+        saved = self.mutate('statement-save', {'statement': {'title':'T','client':'','unit_label':'','monthly_fee':'','period':'','total_received':'','total_due':'','columns':['Q1'],'rows':[{'label':'Row','cells':['']}],'notes':[],'payment':[]}})
+        with patch.dict(os.environ, {'OPULENT_LIVE_SMS_ENABLED':'true','EGOSMS_USERNAME':'','EGOSMS_API_KEY':''}, clear=False):
+            sent = self.mutate('statement-send', {'id': saved['id'], 'phone': '0772494627'})
+        self.assertEqual(sent['status'], 'failed')
+        self.assertIn('credentials', sent['detail'].lower())
+        with server.connect() as c:
+            row = c.execute('SELECT status,detail FROM statement_sends ORDER BY id DESC LIMIT 1').fetchone()
+            self.assertEqual(row['status'], 'failed')
+            self.assertIn('credentials', row['detail'].lower())
+
     def test_staff_email_and_password_reuse_are_refused(self):
         self.mutate('staff', {'name':'Alpha','email':'alpha@example.test','password':'AlphaPassword123!','role':'admin'})
         with self.assertRaises(server.Problem):

@@ -150,7 +150,7 @@ async function sendStatement(){
     statementDraft.id=saved.id;statementDraft.token=saved.token;
   }
   const sent=await api('statement-send',{id:statementDraft.id,phone:phone});
-  toast('Statement sent to '+sent.phone+' — '+sent.status+'.');
+  toast((sent.status==='accepted'||sent.status==='simulated')?('Statement '+sent.status+' to '+sent.phone+'.'):('Could not send to '+sent.phone+' ('+sent.status+'): '+(sent.detail||'no reason given')));
   await reload();
 }
 function statements(){
@@ -172,7 +172,7 @@ function statements(){
   const send=panel('Send this statement',
     `<div class="filters">${select('st-number','Registered numbers',[['','Choose a number'],...numberOptions()],false,'')}${field('st-custom','Or a custom number (e.g. 0772 494 627)','text','',false,false)}${button('st-send','Send SMS',true)}</div>`+
     '<p class="small muted">'+(sendingLive()?'The SMS contains a link and is sent to a real phone.':'Test mode: the SMS is recorded but not sent.')+' '+(d.id?('Link: '+esc(statementLink(d.token))):'Save the statement first to create its link.')+'</p>');
-  const history=panel('Statement history',table(['Sent','Recipient','Statement','Status','Mode','Reference'],state.statement_sends||[],r=>tr([esc(String(r.created||'').replace('T',' ').slice(0,19)),esc(r.phone),esc(r.statement_unit||r.statement_title||''),badge(r.status,messageTone(r.status)),esc(r.mode),esc(r.provider_ref||'—')])));
+  const history=panel('Statement history',table(['Sent','Recipient','Statement','Status','Reason','Reference'],state.statement_sends||[],r=>tr([esc(String(r.created||'').replace('T',' ').slice(0,19)),esc(r.phone),esc(r.statement_unit||r.statement_title||''),badge(r.status,messageTone(r.status)),`<div class="text-wrap">${esc(r.detail||r.mode||'—')}</div>`,esc(r.provider_ref||'—')])));
   return builder+send+history;
 }
 function bindStatement(){

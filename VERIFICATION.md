@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.6.2 checks
+
+New tests confirm that a failed statement send records the reason (for example missing SMS credentials) in both the response and the history, and that a deliberately blank statement can still be sent. The full suite (57 tests) passes and JavaScript syntax is checked with `node --check`. Automated tests send no live SMS. The public statement page also renders through the hosted adapter and an unknown token returns 404.
+
 ## Version 1.6.0 checks
 
 New tests cover saving a statement, rendering the public statement page, a missing token returning 404, normalising local and international phone numbers, an expired link, and recording a send in the history. The public statement page needs no login. The full suite (55 tests) passes and JavaScript syntax is checked with `node --check`. Statement sends follow the live/test switch; automated tests send no live SMS.
