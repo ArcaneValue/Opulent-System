@@ -418,6 +418,23 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request('GET','/api/state')[0],401)
 
 
+    def test_cross_site_link_loads_but_mutations_are_blocked(self):
+        self.assertEqual(self.request('GET','/',headers={'Sec-Fetch-Site':'cross-site'})[0],200)
+        self.assertEqual(self.request('GET','/api/status',headers={'Sec-Fetch-Site':'cross-site'})[0],200)
+        self.setup()
+        self.assertEqual(self.request('POST','/api/properties',{'name':'X','address':'Y'},{'Sec-Fetch-Site':'cross-site'})[0],403)
+
+    def test_self_service_registration_creates_an_administrator(self):
+        self.setup()
+        self.request('POST','/api/logout',{})
+        self.assertEqual(self.request('POST','/api/register',{'name':'Second','email':'second@example.test','password':'SecondPassword123!'})[0],200)
+        _,data=self.request('GET','/api/state')
+        self.assertEqual(data['user']['role'],'admin')
+        self.request('POST','/api/logout',{})
+        self.assertEqual(self.request('POST','/api/register',{'name':'Dup','email':'second@example.test','password':'OtherPassword123!'})[0],409)
+        self.assertEqual(self.request('POST','/api/register',{'name':'Reuse','email':'third@example.test','password':'SecondPassword123!'})[0],409)
+
+
 class LiveSmsTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

@@ -9,20 +9,19 @@ You do **not** need to install any software from a file — Opulent runs in your
 
 ## 1. Get set up (once, per person)
 
-### a. Create the first account
-Whoever opens the website first will see **“Welcome to Opulent”**. Fill in:
+### a. Create your own account
+Open the website address. If you don't have an account yet, click **“Create a staff account”**. Fill in:
 
 - **Your name**
 - **Staff email** (used to sign in — any email you can remember)
-- **Password** — at least 12 characters
+- **Password** — at least 12 characters, and different from everyone else's
 
-Click **Create administrator account**. That person is now an **Administrator** with full access.
+Click **Create administrator account**. You are now an **Administrator** with full access, and you are signed in straight away.
 
-### b. Add the other staff
-The administrator signs in, then opens **Settings → Add staff** and creates an account for each colleague:
+> **Switching between the two screens:** on the sign-in page there is a **“Create a staff account”** link, and on the sign-up page a **“Sign in”** link — use them to move between the two at any time.
 
-- Name, staff email, an **initial password** (they can change it later), and
-- **Access role** — leave it on **Administrator** so everyone has full access.
+### b. Adding someone later (optional)
+An administrator can also add a colleague from **Settings → Add staff** (name, staff email, an initial password and a role). But each person can equally create their own account using the steps above.
 
 > **Passwords must be unique.** The system refuses an email that is already registered, and refuses a password that is already used on another account. This is a security feature — use a different password for each person.
 

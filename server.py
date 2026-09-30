@@ -28,7 +28,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get('OPULENT_DB', str(ROOT / 'data' / 'opulent.sqlite3')))
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
-VERSION = '1.4.1-pilot'
+VERSION = '1.4.2-pilot'
 LOCK = threading.RLock()
 FAILED_LOGINS = {}
 
@@ -660,7 +660,7 @@ class Handler(BaseHTTPRequestHandler):
             raise Problem('Security token expired. Refresh and sign in again.', 403)
         return dict(session)
 
-    def trusted_origin(self):
+    def trusted_origin(self, mutating=False):
         host = self.headers.get('Host', '')
         public = os.environ.get('OPULENT_PUBLIC_URL','').rstrip('/')
         if public:
@@ -674,7 +674,9 @@ class Handler(BaseHTTPRequestHandler):
         origin = self.headers.get('Origin')
         if origin and origin != expected_origin:
             raise Problem('Cross-origin requests are not permitted.', 403)
-        if self.headers.get('Sec-Fetch-Site') == 'cross-site':
+        # Only state-changing requests are blocked when they originate from another site.
+        # Ordinary navigation (following a link from a message or email) must still load the app.
+        if mutating and self.headers.get('Sec-Fetch-Site') == 'cross-site':
             raise Problem('Cross-site requests are not permitted.', 403)
 
     def delivery_report(self, payload, token):
@@ -722,7 +724,7 @@ class Handler(BaseHTTPRequestHandler):
             # Consume bounded bodies before an early rejection, avoiding TCP resets
             # on Windows when a response is sent with unread request bytes.
             d = self.body()
-            self.trusted_origin()
+            self.trusted_origin(mutating=True)
             if self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
                 raise Problem('JSON requests only.', 415)
             path = urlparse(self.path).path
@@ -734,7 +736,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise Problem('Not found.', 404)
             cookie = None
             with connect(True) as c:
-                if route in ('setup', 'login'):
+                if route in ('setup', 'login', 'register'):
                     if route == 'setup':
                         if c.execute('SELECT 1 FROM users LIMIT 1').fetchone():
                             raise Problem('Setup has already been completed.', 409)
@@ -743,6 +745,18 @@ class Handler(BaseHTTPRequestHandler):
                             raise Problem('Enter a valid staff email.')
                         c.execute("INSERT INTO users(name,email,password,role) VALUES(?,?,?,'admin')", (text(d, 'name'), email, password_hash(d.get('password'))))
                         audit(c, email, 'setup', {})
+                    if route == 'register':
+                        # Open self-service registration: each staff member creates their own
+                        # administrator account. A shared join code will gate this later.
+                        email = text(d, 'email', 200).lower()
+                        if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
+                            raise Problem('Enter a valid staff email.')
+                        if c.execute('SELECT 1 FROM users WHERE email=?', (email,)).fetchone():
+                            raise Problem('That email already belongs to a staff account. Sign in instead, or use a different email.', 409)
+                        if password_reused(c, d.get('password')):
+                            raise Problem('That password is already in use on another account. Choose a different password.', 409)
+                        c.execute("INSERT INTO users(name,email,password,role) VALUES(?,?,?,'admin')", (text(d, 'name'), email, password_hash(d.get('password'))))
+                        audit(c, email, 'register', {})
                     email = text(d, 'email', 200).lower()
                     key = (self.client_address[0], email)
                     failures = [t for t in FAILED_LOGINS.get(key, []) if t > time.time() - 900]

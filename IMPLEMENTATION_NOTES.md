@@ -1,4 +1,8 @@
-# Implementation notes — 1.4.1 unique credentials
+# Implementation notes — 1.4.2 open registration
+
+## Version 1.4.2 self-service administrator accounts and navigation fix
+
+Cross-site blocking now applies only to state-changing POST requests. Following the Opulent link from a message, email or another website therefore loads the app normally on any browser, while mutations stay protected. A `register` operation lets each staff member create their own administrator account from the sign-in screen, and the sign-in and sign-up screens link to each other. Duplicate emails and reused passwords are refused. A shared join code is planned to gate registration later.
 
 ## Version 1.4.1 unique credentials and staff guide
 

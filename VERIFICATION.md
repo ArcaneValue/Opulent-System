@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.4.2 checks
+
+New tests confirm that a cross-site page load and status request are allowed while a cross-site state-changing request is refused, and that self-service registration creates an administrator account while rejecting a duplicate email and a reused password. The full suite passes and JavaScript syntax is checked with `node --check`. Automated tests send no live SMS.
+
 ## Version 1.4.1 checks
 
 New tests confirm that a duplicate staff email and a reused password are both refused when adding a staff account, that a password change to an already-used password is refused, and that unique credentials are accepted. The full suite (50 tests) passes and JavaScript syntax is checked with `node --check`. Automated tests send no live SMS.

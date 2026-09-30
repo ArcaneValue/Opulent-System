@@ -1,7 +1,7 @@
 'use strict';
 // Decorative welcome only: never waits for the network or delays authentication requests.
 setTimeout(() => document.querySelector('#splash')?.remove(), 2000);
-let state, page = 'Dashboard', preview, installPrompt, updateWorker, demoPaid=0, demoResult=false, demoPenalty=false;
+let state, page = 'Dashboard', preview, installPrompt, updateWorker, demoPaid=0, demoResult=false, demoPenalty=false, setupRequired=false;
 const $ = s => document.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const currency = value => `${esc(state.settings.currency)} ${(value/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
@@ -21,14 +21,20 @@ async function api(route, body) {
   try { response = await fetch('/api/'+route, {method:body?'POST':'GET',headers:body?{'Content-Type':'application/json','X-CSRF-Token':state?.user.csrf || ''}:{},body:body?JSON.stringify(body):undefined}); }
   catch { throw Error('Cannot reach Opulent. Start the server and reconnect. Your changes were not confirmed.'); }
   const result=await response.json();
-  if(!response.ok) { if(response.status===401 && state){state=null;login(false);} throw Error(result.error || 'Operation failed.'); }
+  if(!response.ok) { if(response.status===401 && state){state=null;authScreen('signin');} throw Error(result.error || 'Operation failed.'); }
   return result;
 }
 async function reload(){state=await api('state'); render();}
-async function boot(){try{const status=await api('status');if(status.setup_required)login(true);else{try{await reload();}catch{login(false);}}}catch(e){$('#app').innerHTML=panel('Unable to open Opulent', `<p>${esc(e.message)}</p>${button('reload','Try again')}`);}}
-function login(setup){
-  $('#app').innerHTML=`<main class="login panel"><div class="brand">OPULENT<small>Property management</small></div><h1>${setup?'Welcome to Opulent':'Welcome back'}</h1><p class="muted">${setup?'Create your administrator account. No default password is provided.':'Sign in to your staff workspace.'}</p><form id="auth" class="form">${setup?field('name','Your name','text','',true):''}${field('email','Staff email','email','',true)}${field('password','Password (at least 12 characters)','password','',true)}<label class="check"><input type="checkbox" data-action="toggle-password"> Show password</label><div class="full">${button('none',setup?'Create administrator account':'Sign in',true,'type="submit"')}<div class="error" id="auth-error"></div></div></form><div class="hint">Staff access only. Condominium reminders are delivered to clients by SMS.</div></main>`;
-  $('#auth').addEventListener('submit',async e=>{e.preventDefault();const submit=e.target.querySelector('button');submit.disabled=true;try{await api(setup?'setup':'login',Object.fromEntries(new FormData(e.target)));await reload();}catch(err){$('#auth-error').textContent=err.message;}finally{submit.disabled=false;}});
+async function boot(){try{const status=await api('status');setupRequired=!!status.setup_required;if(status.setup_required)authScreen('signup');else{try{await reload();}catch{authScreen('signin');}}}catch(e){$('#app').innerHTML=panel('Unable to open Opulent', `<p>${esc(e.message)}</p>${button('reload','Try again')}`);}}
+function authScreen(mode){
+  const signup=mode==='signup';
+  const title=signup?(setupRequired?'Welcome to Opulent':'Create your account'):'Welcome back';
+  const blurb=signup?(setupRequired?'Create your administrator account. No default password is provided.':'Create your administrator account to use Opulent.'):'Sign in to your staff workspace.';
+  const switchLink=signup
+    ?'<p class="muted">Already have an account? <button type="button" data-action="auth-signin" style="background:none;border:0;color:#07878c;font-weight:600;text-decoration:underline;padding:0;cursor:pointer">Sign in</button></p>'
+    :'<p class="muted">New to Opulent? <button type="button" data-action="auth-signup" style="background:none;border:0;color:#07878c;font-weight:600;text-decoration:underline;padding:0;cursor:pointer">Create a staff account</button></p>';
+  $('#app').innerHTML=`<main class="login panel"><div class="brand">OPULENT<small>Property management</small></div><h1>${title}</h1><p class="muted">${blurb}</p><form id="auth" class="form">${signup?field('name','Your name','text','',true):''}${field('email','Staff email','email','',true)}${field('password','Password (at least 12 characters)','password','',true)}<label class="check"><input type="checkbox" data-action="toggle-password"> Show password</label><div class="full">${button('none',signup?'Create administrator account':'Sign in',true,'type="submit"')}<div class="error" id="auth-error"></div></div></form>${switchLink}<div class="hint">Staff access only. Condominium reminders are delivered to clients by SMS.</div></main>`;
+  $('#auth').addEventListener('submit',async e=>{e.preventDefault();const submit=e.target.querySelector('button');submit.disabled=true;try{await api(signup?'register':'login',Object.fromEntries(new FormData(e.target)));await reload();}catch(err){$('#auth-error').textContent=err.message;}finally{submit.disabled=false;}});
 }
 const navigation=[['Dashboard','◈'],['Properties & Units','▤'],['Contacts','♙'],['Charges','▣'],['Payments','▧'],['Reminders','♧'],['Reports','▥'],['Settings','⚙'],['Guided Demo','▷'],['User Guide','?']];
 function render(){
@@ -95,7 +101,7 @@ function unitSelect(value=''){return select('unit_id','Unit',state.units.filter(
 function typeSelect(){return select('type_id','Charge category',state.types.map(t=>[t.id,t.name]));}
 function showForm(title,route,fields,defaults={},hint=''){
   const dialog=$('#modal');dialog.innerHTML=`<header><h2>${title}</h2><button class="close" data-action="close" aria-label="Close dialog">×</button></header>${hint?`<div class="hint">${hint}</div>`:''}<form id="record-form"><div class="form">${fields}</div><div class="error" id="form-error"></div><footer>${button('close','Cancel',false,'type="button"')}${button('none','Save',true,'type="submit"')}</footer></form>`;dialog.showModal();
-  $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const submit=e.target.querySelector('[type=submit]');submit.disabled=true;try{const result=await api(route,{...defaults,...Object.fromEntries(new FormData(e.target))});dialog.close();if(route==='password'){state=null;login(false);toast('Password updated. Sign in with your new password.');}else{await reload();toast(result.created!==undefined?`${result.created} new charge(s) generated.`:'Saved successfully.');}}catch(err){$('#form-error').textContent=err.message;}finally{submit.disabled=false;}});
+  $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const submit=e.target.querySelector('[type=submit]');submit.disabled=true;try{const result=await api(route,{...defaults,...Object.fromEntries(new FormData(e.target))});dialog.close();if(route==='password'){state=null;authScreen('signin');toast('Password updated. Sign in with your new password.');}else{await reload();toast(result.created!==undefined?`${result.created} new charge(s) generated.`:'Saved successfully.');}}catch(err){$('#form-error').textContent=err.message;}finally{submit.disabled=false;}});
 }
 function forms(action,id){
   const month=state.today.slice(0,7);
@@ -124,7 +130,9 @@ document.addEventListener('click',async e=>{
   try{
     if(action==='close'){$('#modal').close();return;}
     if(action==='reload'){await boot();return;}
-    if(action==='logout'){await api('logout',{});state=null;login(false);return;}
+    if(action==='auth-signin'){authScreen('signin');return;}
+    if(action==='auth-signup'){authScreen('signup');return;}
+    if(action==='logout'){await api('logout',{});state=null;authScreen('signin');return;}
     if(action==='guide'||action==='reminders'){page=action==='guide'?'User Guide':'Reminders';render();return;}
     if(action==='guided-demo'){page='Guided Demo';render();return;}
     if(action==='penalty-example'){$('#penalty').value="Your Pacific Victoria elevator access card may be deactivated under the property's policy if the overdue payment remains unpaid.";return;}
