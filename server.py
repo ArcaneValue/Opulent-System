@@ -462,19 +462,10 @@ def mutate(c, route, d, user):
     if route == 'properties':
         c.execute('INSERT INTO properties(name,address) VALUES(?,?)', (text(d, 'name'), text(d, 'address', 300)))
     elif route == 'units':
-        # Property is typed by the user. An unrecognised name creates the property,
-        # so a unit can be registered in one step.
-        name = text(d, 'property_name', 120)
         owner = str(d.get('owner', '')).strip()
         if len(owner) > 120:
             raise Problem('Owner name must be at most 120 characters.')
-        existing = c.execute('SELECT id FROM properties WHERE name=?', (name,)).fetchone()
-        if existing:
-            property_id = existing['id']
-        else:
-            c.execute('INSERT INTO properties(name,address) VALUES(?,?)', (name, 'Not recorded'))
-            property_id = c.execute('SELECT id FROM properties WHERE name=?', (name,)).fetchone()['id']
-        c.execute('INSERT INTO units(property_id,block,label,owner) VALUES(?,?,?,?)', (property_id, '', text(d, 'label', 40), owner))
+        c.execute('INSERT INTO units(property_id,block,label,owner) VALUES(?,?,?,?)', (number(d, 'property_id'), '', text(d, 'label', 40), owner))
     elif route == 'unit-status':
         if not c.execute('UPDATE units SET active=? WHERE id=?', (number(d, 'active', 0, 1), number(d, 'id'))).rowcount:
             raise Problem('Unit not found.', 404)

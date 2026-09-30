@@ -1,8 +1,8 @@
 # Implementation notes — 1.5.0 units and statements
 
-## Version 1.5.0 typed property, owner on the unit, and printed statements
+## Version 1.5.0 owner on the unit, and printed statements
 
-The Add unit form now takes a **typed property name** (with suggestions) instead of a dropdown; an unrecognised name creates the property automatically, so a unit can be registered in one step. The **Block field was replaced by Owner**, stored on the unit and shown in the unit list and on statements. A new **Statements** section produces a printable per-unit statement of charges and payments (Print / Save as PDF); the print stylesheet hides the application chrome. An additive migration adds the `units.owner` column to both SQLite and PostgreSQL.
+The **Block field in the Add unit form was replaced by Owner**, stored on the unit and shown in the unit list and on statements; the property is still chosen from a dropdown. A new **Statements** section produces a printable per-unit statement of charges and payments (Print / Save as PDF); the print stylesheet hides the application chrome. An additive migration adds the `units.owner` column to both SQLite and PostgreSQL.
 
 ## Version 1.4.2 open registration
 

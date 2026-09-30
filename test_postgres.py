@@ -28,7 +28,8 @@ class PostgreSQLWorkflowTest(unittest.TestCase):
         with server.connect(True) as c:
             c.execute("INSERT INTO users(name,email,password,role) VALUES('Tester','postgres-test@example.test',?,'admin')", (server.password_hash('TestingPassword123!'),))
             server.mutate(c, 'properties', {'name':'Test building','address':'Fictional'}, user)
-            server.mutate(c, 'units', {'property_name':'Test building','owner':'Test owner','label':'A01'}, user)
+            property_id = c.execute('SELECT id FROM properties').fetchone()['id']
+            server.mutate(c, 'units', {'property_id':property_id,'owner':'Test owner','label':'A01'}, user)
             unit_id = c.execute('SELECT id FROM units').fetchone()['id']
             server.mutate(c, 'contacts', {'unit_id':unit_id,'name':'Test tenant','phone':'+256700000001','kind':'Tenant','notify':1,'billing_start':'2025-05-17'}, user)
             category = c.execute("SELECT id FROM charge_types WHERE name='Condo Fee'").fetchone()['id']

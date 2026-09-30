@@ -56,7 +56,7 @@ Then **Reminders** turns unpaid charges into text messages.
 
 ### Add a property and its units
 1. **Properties & Units → Add property** → name and address/location.
-2. **Add unit** → type the **property name** (suggestions appear as you type; a new name creates the property automatically), the **owner's name** (optional), and a **unit label** (e.g. A01).
+2. **Add unit** → choose the **property**, enter the **owner's name** (optional), and a **unit label** (e.g. A01).
    Each unit label must be unique within its property.
 3. Use **Deactivate** for a unit you no longer bill — its history stays.
 

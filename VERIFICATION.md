@@ -2,7 +2,7 @@
 
 ## Version 1.5.0 checks
 
-New tests confirm that adding a unit with a new property name creates the property and stores the owner, and that a duplicate unit label in the same property is still refused. The Add unit form, unit list and filters were updated for the typed property and the owner. The full suite (53 tests) passes and JavaScript syntax is checked with `node --check`. The Statements page renders charges, payments and balances and prints through the browser; automated tests do not print. Automated tests send no live SMS.
+New tests confirm that a unit stores the owner's name and that a duplicate unit label in the same property is refused. The Add unit form, unit list and filters show the owner in place of the block. The full suite (53 tests) passes and JavaScript syntax is checked with `node --check`. The Statements page renders charges, payments and balances and prints through the browser; automated tests do not print. Automated tests send no live SMS.
 
 ## Version 1.4.2 checks
 

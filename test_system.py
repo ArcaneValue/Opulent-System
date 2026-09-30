@@ -25,7 +25,7 @@ class FinancialTests(unittest.TestCase):
         with server.connect(True) as c:
             c.execute("INSERT INTO users(id,name,email,password,role) VALUES(1,'Tester','test@example.test',?,'admin')", (server.password_hash('TestingPassword123!'),))
             server.mutate(c, 'properties', {'name':'Test building','address':'Fictional'}, self.user)
-            server.mutate(c, 'units', {'property_name':'Test building','owner':'Test owner','label':'A01'}, self.user)
+            server.mutate(c, 'units', {'property_id':1,'owner':'Test owner','label':'A01'}, self.user)
             server.mutate(c, 'contacts', {'unit_id':1,'name':'Test tenant','phone':'+256700000001','kind':'Tenant','notify':1,'billing_start':'2025-05-17'}, self.user)
 
     def tearDown(self):
@@ -335,14 +335,13 @@ class FinancialTests(unittest.TestCase):
             server.ROOT=old_root
 
 
-    def test_add_unit_with_new_property_name_creates_the_property(self):
-        self.mutate('units', {'property_name':'Riverside Courts','owner':'Jane Doe','label':'B02'})
+    def test_unit_records_owner_name_and_rejects_duplicate_label(self):
+        self.mutate('units', {'property_id':1,'owner':'Jane Doe','label':'B02'})
         with server.connect() as c:
-            self.assertIn('Riverside Courts', [r['name'] for r in server.rows(c, 'SELECT name FROM properties')])
             unit = server.rows(c, "SELECT owner,label,block FROM units WHERE label='B02'")[0]
             self.assertEqual((unit['owner'], unit['label'], unit['block']), ('Jane Doe', 'B02', ''))
         with self.assertRaises(sqlite3.IntegrityError):
-            self.mutate('units', {'property_name':'Riverside Courts','label':'B02'})
+            self.mutate('units', {'property_id':1,'label':'B02'})
 
     def test_staff_email_and_password_reuse_are_refused(self):
         self.mutate('staff', {'name':'Alpha','email':'alpha@example.test','password':'AlphaPassword123!','role':'admin'})
@@ -454,7 +453,7 @@ class LiveSmsTests(unittest.TestCase):
         with server.connect(True) as c:
             c.execute("INSERT INTO users(id,name,email,password,role) VALUES(1,'Live','live@example.test',?,'admin')", (server.password_hash('TestingPassword123!'),))
             server.mutate(c, 'properties', {'name':'Live building','address':'Fictional'}, self.user)
-            server.mutate(c, 'units', {'property_name':'Live building','label':'A01'}, self.user)
+            server.mutate(c, 'units', {'property_id':1,'label':'A01'}, self.user)
             server.mutate(c, 'contacts', {'unit_id':1,'name':'Live tenant','phone':'+256700000001','kind':'Tenant','notify':1,'billing_start':'2025-05-17'}, self.user)
             server.mutate(c, 'charges', {'unit_id':1,'type_id':1,'amount':'350000','period':'2026-09','due':'2026-09-30','source':'Test'}, self.user)
         self.http = server.ThreadingHTTPServer(('127.0.0.1',0), server.Handler)
