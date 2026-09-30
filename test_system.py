@@ -335,6 +335,18 @@ class FinancialTests(unittest.TestCase):
             server.ROOT=old_root
 
 
+    def test_staff_email_and_password_reuse_are_refused(self):
+        self.mutate('staff', {'name':'Alpha','email':'alpha@example.test','password':'AlphaPassword123!','role':'admin'})
+        with self.assertRaises(server.Problem):
+            self.mutate('staff', {'name':'Beta','email':'alpha@example.test','password':'BetaPassword123!','role':'billing'})
+        with self.assertRaises(server.Problem):
+            self.mutate('staff', {'name':'Gamma','email':'gamma@example.test','password':'AlphaPassword123!','role':'billing'})
+        self.mutate('staff', {'name':'Delta','email':'delta@example.test','password':'DeltaPassword123!','role':'admin'})
+        with self.assertRaises(server.Problem):
+            self.mutate('password', {'current_password':'TestingPassword123!','new_password':'DeltaPassword123!'})
+        self.mutate('password', {'current_password':'TestingPassword123!','new_password':'FreshPassword123!'})
+
+
 class HTTPTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
@@ -393,16 +405,16 @@ class HTTPTests(unittest.TestCase):
 
     def test_backend_role_access(self):
         self.setup()
-        self.assertEqual(self.request('POST','/api/staff',{'name':'Viewer','email':'viewer@example.test','password':'TestingPassword123!','role':'viewer'})[0],200)
+        self.assertEqual(self.request('POST','/api/staff',{'name':'Viewer','email':'viewer@example.test','password':'ViewerPassword123!','role':'viewer'})[0],200)
         self.request('POST','/api/logout',{})
-        self.assertEqual(self.request('POST','/api/login',{'email':'viewer@example.test','password':'TestingPassword123!'})[0],200)
+        self.assertEqual(self.request('POST','/api/login',{'email':'viewer@example.test','password':'ViewerPassword123!'})[0],200)
         _,data=self.request('GET','/api/state')
         self.csrf=data['user']['csrf']
         self.assertEqual(data['staff'],[])
         self.assertEqual(data['audit'],[])
         self.assertEqual(self.request('POST','/api/properties',{'name':'X','address':'Y'})[0],403)
         self.assertEqual(self.request('POST','/api/backup',{})[0],403)
-        self.assertEqual(self.request('POST','/api/password',{'current_password':'TestingPassword123!','new_password':'NewTestingPassword123!'})[0],200)
+        self.assertEqual(self.request('POST','/api/password',{'current_password':'ViewerPassword123!','new_password':'NewTestingPassword123!'})[0],200)
         self.assertEqual(self.request('GET','/api/state')[0],401)
 
 

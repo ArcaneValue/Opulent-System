@@ -1,4 +1,10 @@
-# Implementation notes — 1.4.0 staff experience
+# Implementation notes — 1.4.1 unique credentials
+
+## Version 1.4.1 unique credentials and staff guide
+
+Duplicate staff emails are now refused with a clear message instead of a generic integrity error, and a password already stored for any account is refused both when adding a staff member and when changing a password, so credentials cannot be reused across accounts. The Add staff form defaults to the Administrator role, so the small Opulent team can each hold full access. `OPULENT_STAFF_GUIDE.md` was added as a sendable guide for Opulent staff.
+
+Open self-service sign-up remains deliberately out of scope for now.
 
 ## Version 1.4.0 in-app tutorials, live wording and open setup
 

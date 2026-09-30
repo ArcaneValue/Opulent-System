@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.4.1 checks
+
+New tests confirm that a duplicate staff email and a reused password are both refused when adding a staff account, that a password change to an already-used password is refused, and that unique credentials are accepted. The full suite (50 tests) passes and JavaScript syntax is checked with `node --check`. Automated tests send no live SMS.
+
 ## Version 1.4.0 checks
 
 The hosting tests were updated for the removed deployment setup code: first-run setup now succeeds without a setup code and is refused with HTTP 409 once an administrator exists, and the removed `OPULENT_SETUP_TOKEN` validation no longer raises. The full SQLite, HTTP/security, hosting, EgoSMS, sandbox and production suites pass, and JavaScript syntax was checked with `node --check`. Automated tests send no live SMS.

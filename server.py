@@ -28,7 +28,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get('OPULENT_DB', str(ROOT / 'data' / 'opulent.sqlite3')))
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
-VERSION = '1.4.0-pilot'
+VERSION = '1.4.1-pilot'
 LOCK = threading.RLock()
 FAILED_LOGINS = {}
 
@@ -118,6 +118,11 @@ def password_ok(password, stored):
         return hmac.compare_digest(password_hash(password, stored.split(':')[0]), stored)
     except (ValueError, Problem):
         return False
+
+
+def password_reused(c, password):
+    """True when any existing staff account already uses this exact password."""
+    return any(password_ok(password, row['password']) for row in rows(c, 'SELECT password FROM users'))
 
 
 def text(d, key, limit=120):
@@ -575,11 +580,17 @@ def mutate(c, route, d, user):
         email = text(d, 'email', 200).lower()
         if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
             raise Problem('Enter a valid staff email.')
+        if c.execute('SELECT 1 FROM users WHERE email=?', (email,)).fetchone():
+            raise Problem('That email already belongs to a staff account. Use a different email address.', 409)
+        if password_reused(c, d.get('password')):
+            raise Problem('That password is already in use on another account. Choose a different password.', 409)
         c.execute('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)', (text(d, 'name'), email, password_hash(d.get('password')), role))
     elif route == 'password':
         stored = c.execute('SELECT password FROM users WHERE id=?', (user['id'],)).fetchone()[0]
         if not password_ok(d.get('current_password'), stored):
             raise Problem('Current password is incorrect.')
+        if password_reused(c, d.get('new_password')):
+            raise Problem('That password has already been used on an Opulent account. Choose a different password.', 409)
         c.execute('UPDATE users SET password=? WHERE id=?', (password_hash(d.get('new_password')), user['id']))
         c.execute('DELETE FROM sessions WHERE user_id=?', (user['id'],))
     elif route == 'demo':
