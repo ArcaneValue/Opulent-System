@@ -58,13 +58,15 @@ def create_app(start_worker=None):
         handler.server=SimpleNamespace(server_port=int(os.environ.get('PORT','8080')))
         output=[]
 
-        def reply(value,status=200,cookie=None,content_type='application/json'):
+        def reply(value,status=200,cookie=None,content_type='application/json',csp=None):
             raw=json.dumps(value).encode() if content_type=='application/json' else value
+            if isinstance(raw,str):
+                raw=raw.encode('utf-8')
             response=Response(raw,status=status,content_type=content_type)
             response.headers['Cache-Control']='no-store'
             response.headers['X-Content-Type-Options']='nosniff'
             response.headers['Referrer-Policy']='same-origin'
-            response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+            response.headers['Content-Security-Policy']=csp or "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
             if cookie:
                 response.headers['Set-Cookie']=cookie
             if public:

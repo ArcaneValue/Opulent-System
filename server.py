@@ -29,7 +29,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get('OPULENT_DB', str(ROOT / 'data' / 'opulent.sqlite3')))
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
-VERSION = '1.6.0-pilot'
+VERSION = '1.6.1-pilot'
 LOCK = threading.RLock()
 FAILED_LOGINS = {}
 
@@ -797,15 +797,17 @@ class Handler(BaseHTTPRequestHandler):
         # Do not log URLs, contact data, tokens, or body content.
         pass
 
-    def reply(self, value, status=200, cookie=None, content_type='application/json'):
+    def reply(self, value, status=200, cookie=None, content_type='application/json', csp=None):
         raw = json.dumps(value).encode() if content_type == 'application/json' else value
+        if isinstance(raw, str):
+            raw = raw.encode('utf-8')
         self.send_response(status)
         self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(len(raw)))
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Referrer-Policy', 'same-origin')
-        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+        self.send_header('Content-Security-Policy', csp or "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
         if cookie:
             self.send_header('Set-Cookie', cookie)
         self.end_headers()
@@ -867,16 +869,8 @@ class Handler(BaseHTTPRequestHandler):
         self.reply({'ok': True})
 
     def reply_html(self, markup, status=200):
-        raw = markup.encode('utf-8')
-        self.send_response(status)
-        self.send_header('Content-Type', 'text/html; charset=utf-8')
-        self.send_header('Content-Length', str(len(raw)))
-        self.send_header('Cache-Control', 'no-store')
-        self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('Referrer-Policy', 'no-referrer')
-        self.send_header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'")
-        self.end_headers()
-        self.wfile.write(raw)
+        self.reply(markup.encode('utf-8'), status, content_type='text/html; charset=utf-8',
+                   csp="default-src 'none'; style-src 'unsafe-inline'; img-src 'self'")
 
     def do_GET(self):
         try:

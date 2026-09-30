@@ -54,6 +54,17 @@ class HostingTests(unittest.TestCase):
         self.assertEqual(self.get('/server.py').status_code,404)
         self.assertEqual(self.post('/api/login',{'payload':'x'*100001}).status_code,413)
 
+    def test_public_statement_page_through_the_hosted_adapter(self):
+        data={'name':'Host admin','email':'host@example.test','password':'PrivateTestingPassword123!'}
+        self.assertEqual(self.post('/api/setup',data).status_code,200)
+        csrf=self.get('/api/state').json['user']['csrf']
+        saved=self.post('/api/statement-save',{'statement':{'title':'HOSTED STATEMENT','client':'Connie','unit_label':'A303','monthly_fee':'UGX 1','period':'Q1','total_received':'0','total_due':'UGX 0','columns':['Q1'],'rows':[{'label':'Row','cells':['1']}],'notes':['Note'],'payment':['Bank']}},headers={'X-CSRF-Token':csrf})
+        self.assertEqual(saved.status_code,200)
+        page=self.get('/s/'+saved.json['token'])
+        self.assertEqual(page.status_code,200)
+        self.assertIn('HOSTED STATEMENT',page.get_data(as_text=True))
+        self.assertEqual(self.get('/s/missing').status_code,404)
+
     def test_invalid_hosting_configuration_fails_closed(self):
         for url in ('http://example.test','https://example.test/path','https://user:pass@example.test'):
             with patch.dict(os.environ,{'OPULENT_PUBLIC_URL':url}):
