@@ -29,7 +29,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get('OPULENT_DB', str(ROOT / 'data' / 'opulent.sqlite3')))
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
-VERSION = '1.6.2-pilot'
+VERSION = '1.7.0-pilot'
 LOCK = threading.RLock()
 FAILED_LOGINS = {}
 
@@ -572,7 +572,25 @@ def mutate(c, route, d, user):
         if alternate == phone:
             raise Problem('Alternate phone must differ from the primary phone.')
         start = iso_date(d.get('billing_start'))
-        values = (number(d, 'unit_id'), text(d, 'name'), phone, kind, number(d, 'notify', 0, 1), alternate, start)
+        # A contact always belongs to a unit. The unit may be chosen directly, or
+        # typed as a property plus unit label; a typed unit is created when new,
+        # so it then appears in charges, reminders and statements.
+        if d.get('unit_id') not in (None, ''):
+            unit_id = number(d, 'unit_id')
+            if not c.execute('SELECT 1 FROM units WHERE id=?', (unit_id,)).fetchone():
+                raise Problem('That unit was not found.', 404)
+        else:
+            property_id = number(d, 'property_id')
+            if not c.execute('SELECT 1 FROM properties WHERE id=?', (property_id,)).fetchone():
+                raise Problem('Choose a property for this contact.', 404)
+            unit_label = text(d, 'unit_label', 40)
+            found = c.execute('SELECT id FROM units WHERE property_id=? AND label=?', (property_id, unit_label)).fetchone()
+            if found:
+                unit_id = found['id']
+            else:
+                c.execute('INSERT INTO units(property_id,block,label,owner) VALUES(?,?,?,?)', (property_id, '', unit_label, ''))
+                unit_id = c.execute('SELECT id FROM units WHERE property_id=? AND label=?', (property_id, unit_label)).fetchone()['id']
+        values = (unit_id, text(d, 'name'), phone, kind, number(d, 'notify', 0, 1), alternate, start)
         if route == 'contacts':
             c.execute('INSERT INTO contacts(unit_id,name,phone,kind,notify,alternate_phone,billing_start) VALUES(?,?,?,?,?,?,?)', values)
         elif not c.execute('UPDATE contacts SET unit_id=?,name=?,phone=?,kind=?,notify=?,alternate_phone=?,billing_start=? WHERE id=?', (*values,number(d,'id'))).rowcount:

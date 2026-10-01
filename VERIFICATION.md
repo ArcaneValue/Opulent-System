@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.7.0 checks
+
+New tests confirm that registering a contact with a typed unit creates that unit under the chosen property, that reusing the same property and unit reuses the one unit rather than duplicating it, and that a contact without a property is refused. The full suite passes and JavaScript syntax is checked with `node --check`. Automated tests send no live SMS.
+
 ## Version 1.6.2 checks
 
 New tests confirm that a failed statement send records the reason (for example missing SMS credentials) in both the response and the history, and that a deliberately blank statement can still be sent. The full suite (57 tests) passes and JavaScript syntax is checked with `node --check`. Automated tests send no live SMS. The public statement page also renders through the hosted adapter and an unknown token returns 404.

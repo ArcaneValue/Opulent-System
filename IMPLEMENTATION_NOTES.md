@@ -1,6 +1,8 @@
-# Implementation notes — 1.6.0 statements by SMS
+# Implementation notes — 1.7.0 typed unit on contacts
 
-# Implementation notes — 1.6.2 statement send reasons
+## Version 1.7.0 register a contact against a typed unit
+
+The Register contact form now takes the **property from a dropdown** and the **unit as free text**. A unit that does not exist yet is created under the chosen property, so it appears immediately in charges, reminders and statements; an existing unit is reused. A property is required — a phone number is always registered against a unit. The contact API accepts either a unit id or a property plus unit label.
 
 ## Version 1.6.2 statement send reasons
 

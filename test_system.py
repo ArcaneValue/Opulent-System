@@ -381,6 +381,19 @@ class FinancialTests(unittest.TestCase):
             self.assertEqual(row['status'], 'failed')
             self.assertIn('credentials', row['detail'].lower())
 
+    def test_contact_with_a_typed_unit_creates_that_unit(self):
+        self.mutate('contacts', {'property_id':1,'unit_label':'C07','name':'Typed unit tenant','phone':'+256700000020','kind':'Tenant','notify':1,'billing_start':'2025-05-17'})
+        with server.connect() as c:
+            unit = server.rows(c, "SELECT id,label,property_id FROM units WHERE label='C07'")[0]
+            self.assertEqual((unit['label'], unit['property_id']), ('C07', 1))
+            contact = server.rows(c, "SELECT unit_id FROM contacts WHERE phone='+256700000020'")[0]
+            self.assertEqual(contact['unit_id'], unit['id'])
+        self.mutate('contacts', {'property_id':1,'unit_label':'C07','name':'Second person','phone':'+256700000021','kind':'Tenant','notify':1,'billing_start':'2025-05-17'})
+        with server.connect() as c:
+            self.assertEqual(c.execute("SELECT COUNT(*) FROM units WHERE label='C07'").fetchone()[0], 1)
+        with self.assertRaises(server.Problem):
+            self.mutate('contacts', {'unit_label':'C08','name':'No property','phone':'+256700000022','kind':'Tenant','notify':1,'billing_start':'2025-05-17'})
+
     def test_staff_email_and_password_reuse_are_refused(self):
         self.mutate('staff', {'name':'Alpha','email':'alpha@example.test','password':'AlphaPassword123!','role':'admin'})
         with self.assertRaises(server.Problem):
