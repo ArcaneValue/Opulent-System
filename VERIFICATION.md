@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.7.1 checks
+
+The contact edit button already existed and its full path (wrong number, wrong unit, name, type, mute) is verified end to end. The contacts and units tables now label the last column **Actions** and keep it pinned to the right, so Edit is always reachable without horizontal scrolling. The full suite (58 tests) passes and JavaScript syntax is checked with `node --check`.
+
 ## Version 1.7.0 checks
 
 New tests confirm that registering a contact with a typed unit creates that unit under the chosen property, that reusing the same property and unit reuses the one unit rather than duplicating it, and that a contact without a property is refused. The full suite passes and JavaScript syntax is checked with `node --check`. Automated tests send no live SMS.

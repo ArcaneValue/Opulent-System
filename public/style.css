@@ -19,3 +19,6 @@
 .statement .notes{border:1px solid #ccd9e3;border-radius:8px;padding:14px;margin-top:16px}
 .statement .notes li{margin:6px 0;font-size:14px}
 .statement .pay{margin-top:10px;font-size:14px;line-height:1.8}
+.table-wrap table.row-actions th:last-child,.table-wrap table.row-actions td:last-child{position:sticky;right:0;background:#fff;white-space:nowrap;box-shadow:-6px 0 8px -6px rgba(16,44,66,.18)}
+.table-wrap thead th.row-header{background:#fff}
+.table-wrap table.row-actions tbody tr:hover td:last-child{background:#eef5f6}
