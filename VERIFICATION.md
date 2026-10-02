@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.9.0 checks
+
+Updates activate immediately and the page reloads automatically when it is safe to do so, otherwise it offers an Apply now button. The compact plus View all pattern now covers Properties, Units, Contacts and Balances by unit, with search and a status filter where applicable and no date controls on non-dated lists. The full suite (58 tests) passes and JavaScript syntax is checked with `node --check`.
+
 ## Version 1.8.0 checks
 
 The four growing histories show the latest five rows with a View all button, and the modal offers date ranges, From/To dates, search, a status filter and CSV download. Snapshot limits were raised to 2000 for messages, statements, statement sends and audit. The full suite (58 tests) passes and JavaScript syntax is checked with `node --check`.

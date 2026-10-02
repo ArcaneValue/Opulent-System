@@ -61,8 +61,8 @@ function dashboard(){
   const cards=[['Billed this month',currency(total(monthly.map(c=>c.amount))),month],['Allocated to this month',currency(total(monthly.map(c=>c.paid))),'Payments applied to current-period charges'],['Total outstanding',currency(total(state.charges.map(c=>c.remaining))),'All billing periods'],['Overdue units',new Set(overdue.map(c=>c.unit_id)).size,'Units with unpaid past-due charges']];
   return `<div class="cards">${cards.map(([label,value,sub])=>`<div class="card"><span>${label}</span><strong>${value}</strong><span class="small">${sub}</span></div>`).join('')}</div><div class="columns"><div>${panel('Accounts requiring attention',table(['Unit','Category','Period','Due','Charge','Paid','Remaining','Status'],attention,c=>chargeRow(c)))}${panel('Start with a dependable record',`<p class="muted">Register your properties and contacts, set recurring fees, then record payments. Reminders use the remaining balance for each charge.</p><div class="actions">${button('guide','Open user guide')}${button('guided-demo','Try the guided demo',true)}</div>`)}</div><div>${panel('Reminder activity',(sendingLive()?['queued','accepted','delivered','failed','unknown','cancelled']:['queued','simulated','cancelled']).map(s=>`<div class="row"><span>${esc(s.charAt(0).toUpperCase()+s.slice(1))}</span><strong>${state.messages.filter(m=>m.status===s).length}</strong></div>`).join('')+'<p class="small muted">Latest 500 attempts. '+(sendingLive()?'Delivery is confirmed by the provider when the message reaches the handset.':'Test mode: no message reaches a phone.')+'</p>')}${panel('Account credit',`<h2>${currency(credit)}</h2><p class="small muted">Unallocated payments automatically cover future charges for the same unit, oldest due date first.</p>`)}</div></div>`;
 }
-function properties(){return panel('Properties',table(['Property','Address','Units'],state.properties,p=>tr([esc(p.name),esc(p.address),state.units.filter(u=>u.property_id===p.id).length])))+panel('Units',table(['Property','Owner','Unit','Contacts','Status','Actions'],state.units,u=>tr([esc(u.property),esc(u.owner||'—'),esc(u.label),state.contacts.filter(c=>c.unit_id===u.id&&c.active).length,badge(u.active?'Active':'Inactive',u.active?'good':''),writable()?button('unit-toggle',u.active?'Deactivate':'Activate',false,`data-id="${u.id}" class="pill-button"`):'']),'row-actions'));}
-function contacts(){return '<div class="hint">Each number is registered against a property and unit. Use <b>Edit</b> on any row to fix a name, number, unit or billing date at any time.</div>'+panel('Registered contacts',table(['Name','Type','Unit','Primary phone','Alternate phone','Billing start','Notifications','Status','Actions'],state.contacts,c=>tr([esc(c.name),esc(c.kind),esc(c.unit),esc(c.phone),esc(c.alternate_phone||'—'),esc(c.billing_start||'Not recorded'),c.notify?'Enabled':'Disabled',badge(c.active?'Active':'Inactive',c.active?'good':''),writable()?`${button('contact-edit','Edit',true,`data-id="${c.id}"`)} ${button('contact-toggle',c.active?'Deactivate':'Activate',false,`data-id="${c.id}"`)} ${button('notify-toggle',c.notify?'Mute SMS':'Enable SMS',false,`data-id="${c.id}"`)}`:'']),'row-actions'));}
+function properties(){return historyPanel('properties')+historyPanel('units');}
+function contacts(){return '<div class="hint">Each number is registered against a property and unit. Use <b>Edit</b> on any row to fix a name, number, unit or billing date at any time.</div>'+historyPanel('contacts');}
 function filters(prefix){return `<div class="filters">${field(prefix+'period','Billing period','month','',false,false)}${select(prefix+'unit','Unit',[['','All units'],...state.units.map(u=>[u.id,unitName(u)])],false)}${select(prefix+'type','Category',[['','All categories'],...state.types.map(t=>[t.id,t.name])],false)}${select(prefix+'status','Status',[['','All statuses'],['outstanding','Outstanding'],['overdue','Overdue'],['paid','Paid']],false)}${button('filter-'+prefix,'Apply filters')}</div>`;}
 function filtered(prefix){let list=state.charges;const v=key=>$('#'+prefix+key)?.value||'';if(v('period'))list=list.filter(c=>c.period===v('period'));if(v('unit'))list=list.filter(c=>c.unit_id===+v('unit'));if(v('type'))list=list.filter(c=>c.type_id===+v('type'));if(v('status')==='outstanding')list=list.filter(c=>c.remaining>0);if(v('status')==='overdue')list=list.filter(c=>c.remaining>0&&c.due<state.today);if(v('status')==='paid')list=list.filter(c=>!c.remaining);return list;}
 function charges(){return panel('Charge ledger',filters('c')+'<div id="charge-table"></div>',writable()?button('generate','Generate a billing period'):'')+panel('Recurring fee plans',table(['Unit','Category','Monthly amount','Due day','From','Until','Status',''],state.plans,p=>tr([esc(p.unit),esc(p.type),currency(p.amount),p.due_day,esc(p.start_period),esc(p.end_period||'Ongoing'),badge(p.active?'Active':'Stopped',p.active?'good':''),p.active&&writable()?button('stop-plan','Stop plan',false,`data-id="${p.id}"`):''])))+panel('Charge categories',state.types.map(t=>badge(t.name)).join(' '),writable()?button('type','Add category'):'');}
@@ -87,7 +87,26 @@ const historySources={
     records:()=>state.payments||[],date:r=>r.paid_on||'',status:r=>r.reversed?'Reversed':'Recorded',
     search:r=>[r.unit,r.reference,r.paid_on].join(' '),
     csv:r=>[r.paid_on,r.unit,r.reference,(r.amount/100),r.reversed?'Reversed':'Recorded',r.reason||''],
-    render:r=>tr([esc(r.paid_on),esc(r.unit),esc(r.reference),currency(r.amount),r.reversed?'—':currency(r.allocated),r.reversed?'—':currency(r.amount-r.allocated),badge(r.reversed?'Reversed':'Recorded',r.reversed?'bad':'good'),!r.reversed&&writable()?button('reverse','Reverse',false,`data-id="${r.id}"`):esc(r.reason||'')])}
+    render:r=>tr([esc(r.paid_on),esc(r.unit),esc(r.reference),currency(r.amount),r.reversed?'—':currency(r.allocated),r.reversed?'—':currency(r.amount-r.allocated),badge(r.reversed?'Reversed':'Recorded',r.reversed?'bad':'good'),!r.reversed&&writable()?button('reverse','Reverse',false,`data-id="${r.id}"`):esc(r.reason||'')])},
+  properties:{title:'Properties',headings:['Property','Address','Units'],tableClass:'',
+    records:()=>state.properties||[],date:null,status:null,
+    search:r=>[r.name,r.address].join(' '),csv:r=>[r.name,r.address],
+    render:r=>tr([esc(r.name),esc(r.address),state.units.filter(u=>u.property_id===r.id).length])},
+  units:{title:'Units',headings:['Property','Owner','Unit','Contacts','Status','Actions'],tableClass:'row-actions',
+    records:()=>state.units||[],date:null,status:r=>r.active?'Active':'Inactive',
+    search:r=>[r.property,r.owner,r.label].join(' '),
+    csv:r=>[r.property,r.owner||'',r.label,r.active?'Active':'Inactive'],
+    render:r=>tr([esc(r.property),esc(r.owner||'—'),esc(r.label),state.contacts.filter(c=>c.unit_id===r.id&&c.active).length,badge(r.active?'Active':'Inactive',r.active?'good':''),writable()?button('unit-toggle',r.active?'Deactivate':'Activate',false,`data-id="${r.id}" class="pill-button"`):''])},
+  contacts:{title:'Registered contacts',headings:['Name','Type','Unit','Primary phone','Alternate phone','Billing start','Notifications','Status','Actions'],tableClass:'row-actions',
+    records:()=>state.contacts||[],date:null,status:r=>r.active?'Active':'Inactive',
+    search:r=>[r.name,r.phone,r.alternate_phone,r.unit].join(' '),
+    csv:r=>[r.name,r.kind,r.unit,r.phone,r.alternate_phone||'',r.billing_start||'',r.notify?'Enabled':'Disabled',r.active?'Active':'Inactive'],
+    render:r=>tr([esc(r.name),esc(r.kind),esc(r.unit),esc(r.phone),esc(r.alternate_phone||'—'),esc(r.billing_start||'Not recorded'),r.notify?'Enabled':'Disabled',badge(r.active?'Active':'Inactive',r.active?'good':''),writable()?`${button('contact-edit','Edit',true,`data-id="${r.id}"`)} ${button('contact-toggle',r.active?'Deactivate':'Activate',false,`data-id="${r.id}"`)} ${button('notify-toggle',r.notify?'Mute SMS':'Enable SMS',false,`data-id="${r.id}"`)}`:''])},
+  balances:{title:'Balances by unit',headings:['Property','Unit','Billed','Paid against charges','Remaining','Unallocated credit'],tableClass:'',
+    records:()=>state.units||[],date:null,status:null,
+    search:r=>[r.property,r.label].join(' '),
+    csv:r=>{const ch=state.charges.filter(c=>c.unit_id===r.id),s=k=>ch.reduce((n,c)=>n+c[k],0),cr=state.payments.filter(p=>p.unit_id===r.id&&!p.reversed).reduce((n,p)=>n+p.amount-p.allocated,0);return [r.property,r.label,(s('amount')/100),(s('paid')/100),(s('remaining')/100),(cr/100)];},
+    render:r=>{const ch=state.charges.filter(c=>c.unit_id===r.id),sum=k=>ch.reduce((n,c)=>n+c[k],0),credit=state.payments.filter(p=>p.unit_id===r.id&&!p.reversed).reduce((n,p)=>n+p.amount-p.allocated,0);return tr([esc(r.property),esc(r.label),currency(sum('amount')),currency(sum('paid')),currency(sum('remaining')),currency(credit)]);}}
 };
 let historyKind='statements';
 const historyFilter={from:'',to:'',search:'',status:''};
@@ -96,14 +115,14 @@ function historyPanel(kind){
   if(!records.length) return panel(spec.title,empty('No records yet','Nothing has been recorded here yet.'));
   const shown=records.slice(0,5);
   const foot=records.length>shown.length?`<div class="history-foot"><span class="small muted">Showing latest ${shown.length} of ${records.length}</span>${button('history-all','View all',false,`data-kind="${kind}"`)}</div>`:'';
-  return panel(spec.title,table(spec.headings,shown,spec.render)+foot);
+  return panel(spec.title,table(spec.headings,shown,spec.render,spec.tableClass||'')+foot);
 }
 function historyFiltered(kind){
   const spec=historySources[kind];
   let list=spec.records();
-  if(historyFilter.from)list=list.filter(r=>String(spec.date(r)).slice(0,10)>=historyFilter.from);
-  if(historyFilter.to)list=list.filter(r=>String(spec.date(r)).slice(0,10)<=historyFilter.to);
-  if(historyFilter.status)list=list.filter(r=>String(spec.status(r))===historyFilter.status);
+  if(spec.date&&historyFilter.from)list=list.filter(r=>String(spec.date(r)).slice(0,10)>=historyFilter.from);
+  if(spec.date&&historyFilter.to)list=list.filter(r=>String(spec.date(r)).slice(0,10)<=historyFilter.to);
+  if(spec.status&&historyFilter.status)list=list.filter(r=>String(spec.status(r))===historyFilter.status);
   if(historyFilter.search){const q=historyFilter.search.toLowerCase();list=list.filter(r=>String(spec.search(r)).toLowerCase().includes(q));}
   return list;
 }
@@ -124,11 +143,15 @@ function setHistoryRange(days){
 function openHistory(kind){
   historyKind=kind;
   const spec=historySources[kind];
-  const statuses=[...new Set(spec.records().map(r=>spec.status(r)).filter(Boolean))];
+  const statuses=spec.status?[...new Set(spec.records().map(r=>spec.status(r)).filter(Boolean))]:[];
   historyFilter.from='';historyFilter.to='';historyFilter.search='';historyFilter.status='';
+  const searchBox='<label>Search<input type="text" id="hs-search" placeholder="search…"></label>';
+  const statusBox=statuses.length?select('hs-status','Status',[['','All'],...statuses.map(s=>[s,s])],false,''):'';
+  const filters=spec.date
+    ?`<div class="filters">${button('hs-7','Last 7 days')}${button('hs-30','Last 30 days')}${button('hs-90','Last 3 months')}${button('hs-365','Last 12 months')}${button('hs-all','All time')}</div><div class="filters"><label>From<input type="date" id="hs-from"></label><label>To<input type="date" id="hs-to"></label>${searchBox}${statusBox}</div>`
+    :`<div class="filters">${searchBox}${statusBox}</div>`;
   $('#modal').innerHTML=`<header><h2>${esc(spec.title)}</h2><button class="close" data-action="close" aria-label="Close dialog">×</button></header>`
-    +`<div class="filters">${button('hs-7','Last 7 days')}${button('hs-30','Last 30 days')}${button('hs-90','Last 3 months')}${button('hs-365','Last 12 months')}${button('hs-all','All time')}</div>`
-    +`<div class="filters"><label>From<input type="date" id="hs-from"></label><label>To<input type="date" id="hs-to"></label><label>Search<input type="text" id="hs-search" placeholder="recipient, reference…"></label>${select('hs-status','Status',[['','All statuses'],...statuses.map(s=>[s,s])],false,'')}</div>`
+    +filters
     +`<p class="small muted" id="hs-count"></p><div id="history-list"></div>`
     +`<footer>${button('hs-csv','Download CSV')}${button('close','Close',true)}</footer>`;
   $('#modal').showModal();
@@ -149,7 +172,7 @@ function historyCSV(){
 function payments(){return '<div class="hint">Payments cover the oldest outstanding charges on the selected unit first, across categories. Any excess remains as account credit. Reversing a payment restores its unpaid balances and preserves an audit trail.</div>'+historyPanel('payments');}
 function reminders(){return '<div class="hint warning">'+(sendingLive()?'Live sending is ON. Review recipients, periods, text and estimated cost before confirming — these messages go to real phones.':'Test mode: no SMS is sent. Review recipients, periods, text and estimated cost before confirming.')+'</div>'+panel('Select charges to remind',filters('r')+'<div id="reminder-table"></div>',button('select-all','Select outstanding'))+(writable()?panel('Manual notice and recipients',`<label for="penalty">Penalty notice (optional · overdue charges only)<textarea id="penalty" maxlength="300" placeholder="Enter the notice you want staff to communicate"></textarea></label><p class="small muted">This wording is added only to selected charges that are already overdue. It is never added automatically, and it does not deactivate a card or apply a financial penalty.</p>${button('penalty-example','Use elevator-card example')}<label class="check"><input id="include-alternate" type="checkbox">Also notify the registered alternate numbers for this manual reminder</label><p class="small muted">Primary numbers are selected by default. Alternate numbers appear separately in the preview. Automatic reminders use primary numbers only.</p>`):'')+historyPanel('messages')+`<p class="small muted">Automatic reminders: ${state.settings.automatic?'enabled':'disabled'}. The server checks every 15 seconds. ${button('refresh','Refresh status')}</p>`;}
 function updateReminderSelection(){$('#reminder-table').innerHTML=table(['','Unit','Category','Period','Due','Charge','Paid','Remaining','Status'],filtered('r').filter(c=>c.remaining>0),c=>chargeRow(c,true));}
-function reports(){return panel('Balances by unit',table(['Property','Unit','Billed','Paid against charges','Remaining','Unallocated credit'],state.units,u=>{const charges=state.charges.filter(c=>c.unit_id===u.id),sum=k=>charges.reduce((n,c)=>n+c[k],0),credit=state.payments.filter(p=>p.unit_id===u.id&&!p.reversed).reduce((n,p)=>n+p.amount-p.allocated,0);return tr([esc(u.property),esc(u.label),currency(sum('amount')),currency(sum('paid')),currency(sum('remaining')),currency(credit)]);}))+(admin()?historyPanel('audit'):'');}
+function reports(){return historyPanel('balances')+(admin()?historyPanel('audit'):'');}
 let statementDraft=null, statementDirty=false, statementSourceUnit=0;
 function amountText(v){return (v/100).toLocaleString('en-US',{maximumFractionDigits:2});}
 function statementLink(token){return location.origin+'/s/'+token;}
@@ -264,6 +287,8 @@ function bindStatement(){
 }
 function autoRefresh(){
   if(!state||document.hidden)return;
+  if(swRegistration)swRegistration.update().catch(()=>{});
+  if(updatePending){if(safeToRefresh())location.reload();return;}
   if($('#modal').open)return;
   if(document.querySelector('input:focus, textarea:focus, select:focus'))return;
   if(page==='Statements'&&statementDirty)return;
@@ -381,12 +406,25 @@ document.addEventListener('click',async e=>{
     if(action==='demo'){target.disabled=true;try{await api('demo',{});await reload();toast('Fictional demo records added. No messages sent.');}finally{target.disabled=false;}return;}
     if(action==='backup'){target.disabled=true;try{const result=await api('backup',{});toast('Backup verified and saved: '+result.file);}finally{target.disabled=false;}return;}
     if(action==='install'){if(installPrompt){await installPrompt.prompt();installPrompt=null;}else toast('In Microsoft Edge, open the menu → Apps → Install this site as an app.');return;}
-    if(action==='update'){if($('#modal').open||$('#auth')){toast('Save your work or close the form before updating.');return;}updateWorker?.postMessage('ACTIVATE');return;}
+    if(action==='update'){if(safeToRefresh())location.reload();else toast('Save your work or close the form before updating.');return;}
     forms(action,id);
   }catch(err){toast(err.message);}
 });
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;});
 window.addEventListener('offline',()=>{$('#notice').textContent='Connection lost. Financial changes cannot be saved until the server is reachable.';});
 window.addEventListener('online',()=>{$('#notice').textContent='';});
-if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(reg=>{const show=()=>{updateWorker=reg.waiting;if(updateWorker)$('#notice').innerHTML='An update is ready. Save your work, close any forms, then refresh.'+button('update','Apply update');};show();reg.addEventListener('updatefound',()=>{const installing=reg.installing;installing?.addEventListener('statechange',()=>{if(installing.state==='installed'&&navigator.serviceWorker.controller)show();});});let refreshing=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(updateWorker&&!refreshing){refreshing=true;location.reload();}});}).catch(()=>{});}
+let swRegistration=null, updatePending=false;
+function safeToRefresh(){if($('#modal')&&$('#modal').open)return false;if(document.querySelector('input:focus, textarea:focus, select:focus'))return false;if(page==='Statements'&&statementDirty)return false;return true;}
+if('serviceWorker' in navigator){
+  const hadController=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('/sw.js').then(reg=>{
+    swRegistration=reg;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      if(!hadController||updatePending)return;
+      updatePending=true;
+      if(safeToRefresh())location.reload();
+      else $('#notice').innerHTML='An update is ready. It will apply automatically once you finish editing.'+button('update','Apply now');
+    });
+  }).catch(()=>{});
+}
 boot();

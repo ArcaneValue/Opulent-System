@@ -1,4 +1,10 @@
-# Implementation notes — 1.8.0 expandable histories
+# Implementation notes — 1.9.0 automatic updates and compact lists
+
+## Version 1.9.0 automatic updates and compact lists
+
+When an update is published, the new service worker now activates immediately (`skipWaiting`). The page reloads **automatically once it is safe** — no open dialog, no field focused, no unsaved statement edit — and otherwise shows a notice that it will apply as soon as editing finishes, with an **Apply now** button. The app also checks for a new version on each five-minute refresh.
+
+The compact "latest five + View all" pattern now covers the **Properties**, **Units**, **Contacts** and **Balances by unit** lists in addition to the four histories. List sources hide the date controls and show a search box plus a status filter where it applies.
 
 ## Version 1.8.0 expandable, filterable histories
 
