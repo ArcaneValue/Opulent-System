@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.8.0 checks
+
+The four growing histories show the latest five rows with a View all button, and the modal offers date ranges, From/To dates, search, a status filter and CSV download. Snapshot limits were raised to 2000 for messages, statements, statement sends and audit. The full suite (58 tests) passes and JavaScript syntax is checked with `node --check`.
+
 ## Version 1.7.1 checks
 
 The contact edit button already existed and its full path (wrong number, wrong unit, name, type, mute) is verified end to end. The contacts and units tables now label the last column **Actions** and keep it pinned to the right, so Edit is always reachable without horizontal scrolling. The full suite (58 tests) passes and JavaScript syntax is checked with `node --check`.

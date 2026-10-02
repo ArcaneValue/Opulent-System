@@ -1,4 +1,8 @@
-# Implementation notes — 1.7.0 typed unit on contacts
+# Implementation notes — 1.8.0 expandable histories
+
+## Version 1.8.0 expandable, filterable histories
+
+The four growing histories — **Statement history**, **Message history**, **Audit history** and **Payment history** — now show the latest five rows on the page with a **View all** button. That button opens a modal with quick ranges (7 days, 30 days, 3 months, 12 months, all time), From/To date pickers, a search box, a status filter, a scrollable table and a CSV download. Snapshot limits for messages, statements, statement sends and audit were raised to 2000 so the modal reaches back over past years.
 
 ## Version 1.7.0 register a contact against a typed unit
 

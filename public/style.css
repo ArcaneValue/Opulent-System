@@ -22,3 +22,5 @@
 .table-wrap table.row-actions th:last-child,.table-wrap table.row-actions td:last-child{position:sticky;right:0;background:#fff;white-space:nowrap;box-shadow:-6px 0 8px -6px rgba(16,44,66,.18)}
 .table-wrap thead th.row-header{background:#fff}
 .table-wrap table.row-actions tbody tr:hover td:last-child{background:#eef5f6}
+.history-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+#history-list{max-height:60vh;overflow:auto}

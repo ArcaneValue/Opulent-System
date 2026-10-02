@@ -67,10 +67,89 @@ function filters(prefix){return `<div class="filters">${field(prefix+'period','B
 function filtered(prefix){let list=state.charges;const v=key=>$('#'+prefix+key)?.value||'';if(v('period'))list=list.filter(c=>c.period===v('period'));if(v('unit'))list=list.filter(c=>c.unit_id===+v('unit'));if(v('type'))list=list.filter(c=>c.type_id===+v('type'));if(v('status')==='outstanding')list=list.filter(c=>c.remaining>0);if(v('status')==='overdue')list=list.filter(c=>c.remaining>0&&c.due<state.today);if(v('status')==='paid')list=list.filter(c=>!c.remaining);return list;}
 function charges(){return panel('Charge ledger',filters('c')+'<div id="charge-table"></div>',writable()?button('generate','Generate a billing period'):'')+panel('Recurring fee plans',table(['Unit','Category','Monthly amount','Due day','From','Until','Status',''],state.plans,p=>tr([esc(p.unit),esc(p.type),currency(p.amount),p.due_day,esc(p.start_period),esc(p.end_period||'Ongoing'),badge(p.active?'Active':'Stopped',p.active?'good':''),p.active&&writable()?button('stop-plan','Stop plan',false,`data-id="${p.id}"`):''])))+panel('Charge categories',state.types.map(t=>badge(t.name)).join(' '),writable()?button('type','Add category'):'');}
 function updateCharges(){$('#charge-table').innerHTML=table(['Unit','Category','Period','Due','Charge','Paid','Remaining','Status'],filtered('c'),c=>chargeRow(c));}
-function payments(){return '<div class="hint">Payments cover the oldest outstanding charges on the selected unit first, across categories. Any excess remains as account credit. Reversing a payment restores its unpaid balances and preserves an audit trail.</div>'+panel('Payment history',table(['Date','Unit','Reference','Received','Allocated','Credit','Status',''],state.payments,p=>tr([esc(p.paid_on),esc(p.unit),esc(p.reference),currency(p.amount),p.reversed?'—':currency(p.allocated),p.reversed?'—':currency(p.amount-p.allocated),badge(p.reversed?'Reversed':'Recorded',p.reversed?'bad':'good'),!p.reversed&&writable()?button('reverse','Reverse',false,`data-id="${p.id}"`):esc(p.reason||'')])));}
-function reminders(){return '<div class="hint warning">'+(sendingLive()?'Live sending is ON. Review recipients, periods, text and estimated cost before confirming — these messages go to real phones.':'Test mode: no SMS is sent. Review recipients, periods, text and estimated cost before confirming.')+'</div>'+panel('Select charges to remind',filters('r')+'<div id="reminder-table"></div>',button('select-all','Select outstanding'))+(writable()?panel('Manual notice and recipients',`<label for="penalty">Penalty notice (optional · overdue charges only)<textarea id="penalty" maxlength="300" placeholder="Enter the notice you want staff to communicate"></textarea></label><p class="small muted">This wording is added only to selected charges that are already overdue. It is never added automatically, and it does not deactivate a card or apply a financial penalty.</p>${button('penalty-example','Use elevator-card example')}<label class="check"><input id="include-alternate" type="checkbox">Also notify the registered alternate numbers for this manual reminder</label><p class="small muted">Primary numbers are selected by default. Alternate numbers appear separately in the preview. Automatic reminders use primary numbers only.</p>`):'')+panel('Message history',table(['Created','Recipient','Period / message','Status','Mode','Reference'],state.messages,m=>tr([esc(m.created.replace('T',' ').slice(0,19)),esc(m.phone),`<div class="text-wrap">${esc(m.body)}</div>`,badge(m.status,messageTone(m.status)),esc(m.mode),esc(m.provider_ref||'—')])))+`<p class="small muted">Automatic reminders: ${state.settings.automatic?'enabled':'disabled'}. The server checks every 15 seconds. ${button('refresh','Refresh status')}</p>`;}
+const historySources={
+  statements:{title:'Statement history',headings:['Sent','Recipient','Statement','Status','Reason','Reference'],
+    records:()=>state.statement_sends||[],date:r=>r.created||'',status:r=>r.status||'',
+    search:r=>[r.phone,r.statement_unit,r.statement_title,r.detail].join(' '),
+    csv:r=>[r.created,r.phone,r.statement_unit||r.statement_title||'',r.status,r.detail||'',r.provider_ref||''],
+    render:r=>tr([esc(String(r.created||'').replace('T',' ').slice(0,19)),esc(r.phone),esc(r.statement_unit||r.statement_title||''),badge(r.status,messageTone(r.status)),`<div class="text-wrap">${esc(r.detail||r.mode||'—')}</div>`,esc(r.provider_ref||'—')])},
+  messages:{title:'Message history',headings:['Created','Recipient','Period / message','Status','Mode','Reference'],
+    records:()=>state.messages||[],date:r=>r.created||'',status:r=>r.status||'',
+    search:r=>[r.phone,r.body,r.status].join(' '),
+    csv:r=>[r.created,r.phone,r.body,r.status,r.mode,r.provider_ref||''],
+    render:r=>tr([esc(String(r.created||'').replace('T',' ').slice(0,19)),esc(r.phone),`<div class="text-wrap">${esc(r.body)}</div>`,badge(r.status,messageTone(r.status)),esc(r.mode),esc(r.provider_ref||'—')])},
+  audit:{title:'Audit history',headings:['Time (UTC)','Staff','Action','Detail'],
+    records:()=>state.audit||[],date:r=>r.created||'',status:()=>'',
+    search:r=>[r.actor,r.action,r.detail].join(' '),
+    csv:r=>[r.created,r.actor,r.action,r.detail],
+    render:r=>tr([esc(r.created),esc(r.actor),esc(r.action),`<div class="text-wrap">${esc(r.detail)}</div>`])},
+  payments:{title:'Payment history',headings:['Date','Unit','Reference','Received','Allocated','Credit','Status',''],
+    records:()=>state.payments||[],date:r=>r.paid_on||'',status:r=>r.reversed?'Reversed':'Recorded',
+    search:r=>[r.unit,r.reference,r.paid_on].join(' '),
+    csv:r=>[r.paid_on,r.unit,r.reference,(r.amount/100),r.reversed?'Reversed':'Recorded',r.reason||''],
+    render:r=>tr([esc(r.paid_on),esc(r.unit),esc(r.reference),currency(r.amount),r.reversed?'—':currency(r.allocated),r.reversed?'—':currency(r.amount-r.allocated),badge(r.reversed?'Reversed':'Recorded',r.reversed?'bad':'good'),!r.reversed&&writable()?button('reverse','Reverse',false,`data-id="${r.id}"`):esc(r.reason||'')])}
+};
+let historyKind='statements';
+const historyFilter={from:'',to:'',search:'',status:''};
+function historyPanel(kind){
+  const spec=historySources[kind],records=spec.records();
+  if(!records.length) return panel(spec.title,empty('No records yet','Nothing has been recorded here yet.'));
+  const shown=records.slice(0,5);
+  const foot=records.length>shown.length?`<div class="history-foot"><span class="small muted">Showing latest ${shown.length} of ${records.length}</span>${button('history-all','View all',false,`data-kind="${kind}"`)}</div>`:'';
+  return panel(spec.title,table(spec.headings,shown,spec.render)+foot);
+}
+function historyFiltered(kind){
+  const spec=historySources[kind];
+  let list=spec.records();
+  if(historyFilter.from)list=list.filter(r=>String(spec.date(r)).slice(0,10)>=historyFilter.from);
+  if(historyFilter.to)list=list.filter(r=>String(spec.date(r)).slice(0,10)<=historyFilter.to);
+  if(historyFilter.status)list=list.filter(r=>String(spec.status(r))===historyFilter.status);
+  if(historyFilter.search){const q=historyFilter.search.toLowerCase();list=list.filter(r=>String(spec.search(r)).toLowerCase().includes(q));}
+  return list;
+}
+function renderHistory(){
+  const spec=historySources[historyKind],list=historyFiltered(historyKind);
+  const count=$('#hs-count');
+  if(count)count.textContent='Showing '+list.length+' of '+spec.records().length+' record(s).';
+  const target=$('#history-list');
+  if(target)target.innerHTML=table(spec.headings,list,spec.render);
+}
+function syncHistoryRange(){const f=$('#hs-from'),t=$('#hs-to');if(f)f.value=historyFilter.from;if(t)t.value=historyFilter.to;}
+function setHistoryRange(days){
+  const today=new Date(state.today+'T00:00:00Z');
+  historyFilter.to=today.toISOString().slice(0,10);
+  historyFilter.from=new Date(today.getTime()-(days-1)*86400000).toISOString().slice(0,10);
+  syncHistoryRange();renderHistory();
+}
+function openHistory(kind){
+  historyKind=kind;
+  const spec=historySources[kind];
+  const statuses=[...new Set(spec.records().map(r=>spec.status(r)).filter(Boolean))];
+  historyFilter.from='';historyFilter.to='';historyFilter.search='';historyFilter.status='';
+  $('#modal').innerHTML=`<header><h2>${esc(spec.title)}</h2><button class="close" data-action="close" aria-label="Close dialog">×</button></header>`
+    +`<div class="filters">${button('hs-7','Last 7 days')}${button('hs-30','Last 30 days')}${button('hs-90','Last 3 months')}${button('hs-365','Last 12 months')}${button('hs-all','All time')}</div>`
+    +`<div class="filters"><label>From<input type="date" id="hs-from"></label><label>To<input type="date" id="hs-to"></label><label>Search<input type="text" id="hs-search" placeholder="recipient, reference…"></label>${select('hs-status','Status',[['','All statuses'],...statuses.map(s=>[s,s])],false,'')}</div>`
+    +`<p class="small muted" id="hs-count"></p><div id="history-list"></div>`
+    +`<footer>${button('hs-csv','Download CSV')}${button('close','Close',true)}</footer>`;
+  $('#modal').showModal();
+  const from=$('#hs-from'),to=$('#hs-to'),search=$('#hs-search'),status=$('#hs-status');
+  if(from)from.addEventListener('change',()=>{historyFilter.from=from.value;renderHistory();});
+  if(to)to.addEventListener('change',()=>{historyFilter.to=to.value;renderHistory();});
+  if(search)search.addEventListener('input',()=>{historyFilter.search=search.value;renderHistory();});
+  if(status)status.addEventListener('change',()=>{historyFilter.status=status.value;renderHistory();});
+  renderHistory();
+}
+function historyCSV(){
+  const spec=historySources[historyKind],list=historyFiltered(historyKind);
+  const rows=[spec.headings].concat(list.map(spec.csv));
+  const csv=rows.map(row=>row.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=historyKind+'-history.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function payments(){return '<div class="hint">Payments cover the oldest outstanding charges on the selected unit first, across categories. Any excess remains as account credit. Reversing a payment restores its unpaid balances and preserves an audit trail.</div>'+historyPanel('payments');}
+function reminders(){return '<div class="hint warning">'+(sendingLive()?'Live sending is ON. Review recipients, periods, text and estimated cost before confirming — these messages go to real phones.':'Test mode: no SMS is sent. Review recipients, periods, text and estimated cost before confirming.')+'</div>'+panel('Select charges to remind',filters('r')+'<div id="reminder-table"></div>',button('select-all','Select outstanding'))+(writable()?panel('Manual notice and recipients',`<label for="penalty">Penalty notice (optional · overdue charges only)<textarea id="penalty" maxlength="300" placeholder="Enter the notice you want staff to communicate"></textarea></label><p class="small muted">This wording is added only to selected charges that are already overdue. It is never added automatically, and it does not deactivate a card or apply a financial penalty.</p>${button('penalty-example','Use elevator-card example')}<label class="check"><input id="include-alternate" type="checkbox">Also notify the registered alternate numbers for this manual reminder</label><p class="small muted">Primary numbers are selected by default. Alternate numbers appear separately in the preview. Automatic reminders use primary numbers only.</p>`):'')+historyPanel('messages')+`<p class="small muted">Automatic reminders: ${state.settings.automatic?'enabled':'disabled'}. The server checks every 15 seconds. ${button('refresh','Refresh status')}</p>`;}
 function updateReminderSelection(){$('#reminder-table').innerHTML=table(['','Unit','Category','Period','Due','Charge','Paid','Remaining','Status'],filtered('r').filter(c=>c.remaining>0),c=>chargeRow(c,true));}
-function reports(){return panel('Balances by unit',table(['Property','Unit','Billed','Paid against charges','Remaining','Unallocated credit'],state.units,u=>{const charges=state.charges.filter(c=>c.unit_id===u.id),sum=k=>charges.reduce((n,c)=>n+c[k],0),credit=state.payments.filter(p=>p.unit_id===u.id&&!p.reversed).reduce((n,p)=>n+p.amount-p.allocated,0);return tr([esc(u.property),esc(u.label),currency(sum('amount')),currency(sum('paid')),currency(sum('remaining')),currency(credit)]);}))+(admin()?panel('Audit history · latest 200 events',table(['Time (UTC)','Staff','Action','Detail'],state.audit,a=>tr([esc(a.created),esc(a.actor),esc(a.action),`<div class="text-wrap">${esc(a.detail)}</div>`]))):'');}
+function reports(){return panel('Balances by unit',table(['Property','Unit','Billed','Paid against charges','Remaining','Unallocated credit'],state.units,u=>{const charges=state.charges.filter(c=>c.unit_id===u.id),sum=k=>charges.reduce((n,c)=>n+c[k],0),credit=state.payments.filter(p=>p.unit_id===u.id&&!p.reversed).reduce((n,p)=>n+p.amount-p.allocated,0);return tr([esc(u.property),esc(u.label),currency(sum('amount')),currency(sum('paid')),currency(sum('remaining')),currency(credit)]);}))+(admin()?historyPanel('audit'):'');}
 let statementDraft=null, statementDirty=false, statementSourceUnit=0;
 function amountText(v){return (v/100).toLocaleString('en-US',{maximumFractionDigits:2});}
 function statementLink(token){return location.origin+'/s/'+token;}
@@ -172,7 +251,7 @@ function statements(){
   const send=panel('Send this statement',
     `<div class="filters">${select('st-number','Registered numbers',[['','Choose a number'],...numberOptions()],false,'')}${field('st-custom','Or a custom number (e.g. 0772 494 627)','text','',false,false)}${button('st-send','Send SMS',true)}</div>`+
     '<p class="small muted">'+(sendingLive()?'The SMS contains a link and is sent to a real phone.':'Test mode: the SMS is recorded but not sent.')+' '+(d.id?('Link: '+esc(statementLink(d.token))):'Save the statement first to create its link.')+'</p>');
-  const history=panel('Statement history',table(['Sent','Recipient','Statement','Status','Reason','Reference'],state.statement_sends||[],r=>tr([esc(String(r.created||'').replace('T',' ').slice(0,19)),esc(r.phone),esc(r.statement_unit||r.statement_title||''),badge(r.status,messageTone(r.status)),`<div class="text-wrap">${esc(r.detail||r.mode||'—')}</div>`,esc(r.provider_ref||'—')])));
+  const history=historyPanel('statements');
   return builder+send+history;
 }
 function bindStatement(){
@@ -275,6 +354,13 @@ document.addEventListener('click',async e=>{
     if(action==='filter-c'){updateCharges();return;}
     if(action==='filter-r'){updateReminderSelection();return;}
     if(action==='refresh'){await reload();return;}
+    if(action==='history-all'){openHistory(target.dataset.kind);return;}
+    if(action==='hs-7'){setHistoryRange(7);return;}
+    if(action==='hs-30'){setHistoryRange(30);return;}
+    if(action==='hs-90'){setHistoryRange(90);return;}
+    if(action==='hs-365'){setHistoryRange(365);return;}
+    if(action==='hs-all'){historyFilter.from='';historyFilter.to='';syncHistoryRange();renderHistory();return;}
+    if(action==='hs-csv'){historyCSV();return;}
     if(action==='help'){openHelp(page);return;}
     if(action==='help-page'){openHelp(target.dataset.page);return;}
     if(action==='toggle-password'){document.querySelectorAll('input.pw').forEach(i=>i.type=target.checked?'text':'password');return;}

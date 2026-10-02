@@ -29,7 +29,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get('OPULENT_DB', str(ROOT / 'data' / 'opulent.sqlite3')))
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
-VERSION = '1.7.1-pilot'
+VERSION = '1.8.0-pilot'
 LOCK = threading.RLock()
 FAILED_LOGINS = {}
 
@@ -518,11 +518,11 @@ def snapshot(c, user):
             'contacts': rows(c, 'SELECT c.*,u.label unit FROM contacts c JOIN units u ON u.id=c.unit_id ORDER BY c.name'),
             'types': rows(c, 'SELECT * FROM charge_types ORDER BY id'), 'plans': rows(c, 'SELECT p.*,u.label unit,t.name type FROM plans p JOIN units u ON u.id=p.unit_id JOIN charge_types t ON t.id=p.type_id ORDER BY p.id DESC'),
             'charges': charge_list(c), 'payments': payments,
-            'messages': rows(c, 'SELECT * FROM messages ORDER BY id DESC LIMIT 500'),
-            'statements': rows(c, 'SELECT * FROM statements ORDER BY id DESC LIMIT 200'),
-            'statement_sends': rows(c, 'SELECT ss.*, st.title statement_title, st.unit_label statement_unit FROM statement_sends ss JOIN statements st ON st.id=ss.statement_id ORDER BY ss.id DESC LIMIT 500'),
+            'messages': rows(c, 'SELECT * FROM messages ORDER BY id DESC LIMIT 2000'),
+            'statements': rows(c, 'SELECT * FROM statements ORDER BY id DESC LIMIT 2000'),
+            'statement_sends': rows(c, 'SELECT ss.*, st.title statement_title, st.unit_label statement_unit FROM statement_sends ss JOIN statements st ON st.id=ss.statement_id ORDER BY ss.id DESC LIMIT 2000'),
             'staff': rows(c, 'SELECT id,name,email,role FROM users ORDER BY id') if user['role'] == 'admin' else [],
-            'audit': rows(c, 'SELECT * FROM audit ORDER BY id DESC LIMIT 200') if user['role'] == 'admin' else []}
+            'audit': rows(c, 'SELECT * FROM audit ORDER BY id DESC LIMIT 2000') if user['role'] == 'admin' else []}
 
 
 def save_backup():
