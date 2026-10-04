@@ -355,6 +355,7 @@ class FinancialTests(unittest.TestCase):
             page = server.statement_page(row)
             self.assertIn('CONDO FEES STATEMENT', page)
             self.assertIn('Stanbic Bank', page)
+            self.assertIn('<span>Unit</span><b>A303</b>', page)
         self.assertEqual(server.normalize_phone('0772 494 627'), '+256772494627')
         self.assertEqual(server.normalize_phone('+256772494627'), '+256772494627')
         self.assertEqual(server.normalize_phone('00256772494627'), '+256772494627')
@@ -364,10 +365,15 @@ class FinancialTests(unittest.TestCase):
         self.assertEqual((sent['phone'], sent['status']), ('+256772494627', 'simulated'))
         with server.connect() as c:
             self.assertEqual(c.execute('SELECT COUNT(*) FROM statement_sends').fetchone()[0], 1)
+            history = c.execute('SELECT snapshot_json FROM statement_sends').fetchone()
+            self.assertEqual(json.loads(history['snapshot_json'])['unit_label'], 'A303')
             self.assertEqual(len(server.snapshot(c, self.user)['statement_sends']), 1)
-        self.mutate('statement-save', {'statement': {**statement, 'id': saved['id'], 'expires': '2000-01-01'}})
+        self.mutate('statement-save', {'statement': {**statement, 'id': saved['id'], 'unit_label': 'B701', 'expires': '2000-01-01'}})
         with server.connect() as c:
+            history = c.execute('SELECT snapshot_json FROM statement_sends').fetchone()
+            self.assertEqual(json.loads(history['snapshot_json'])['unit_label'], 'A303')
             row = c.execute('SELECT * FROM statements WHERE id=?', (saved['id'],)).fetchone()
+            self.assertEqual(row['unit_label'], 'B701')
             self.assertTrue(row['expires'] < server.today(c).isoformat())
 
     def test_statement_send_reports_a_reason_when_it_fails(self):

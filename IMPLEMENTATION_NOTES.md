@@ -1,4 +1,8 @@
-# Implementation notes — 1.9.0 automatic updates and compact lists
+# Implementation notes — 1.9.1 statement history view
+
+## Version 1.9.1 statement unit and read-only history view
+
+The unit label now appears in the builder preview and in the recipient's browser statement. Sending saves the current builder fields first, so a newly entered unit label is present in the linked statement. Every new send stores a statement snapshot with its history record. Staff can click **View** on a Statement history row to open the full, read-only statement as it was when sent. Older history rows predate snapshots, so their View button shows the current saved statement with an explicit notice. Existing statement data is preserved by an additive SQLite/PostgreSQL column migration.
 
 ## Version 1.9.0 automatic updates and compact lists
 

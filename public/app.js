@@ -67,12 +67,17 @@ function filters(prefix){return `<div class="filters">${field(prefix+'period','B
 function filtered(prefix){let list=state.charges;const v=key=>$('#'+prefix+key)?.value||'';if(v('period'))list=list.filter(c=>c.period===v('period'));if(v('unit'))list=list.filter(c=>c.unit_id===+v('unit'));if(v('type'))list=list.filter(c=>c.type_id===+v('type'));if(v('status')==='outstanding')list=list.filter(c=>c.remaining>0);if(v('status')==='overdue')list=list.filter(c=>c.remaining>0&&c.due<state.today);if(v('status')==='paid')list=list.filter(c=>!c.remaining);return list;}
 function charges(){return panel('Charge ledger',filters('c')+'<div id="charge-table"></div>',writable()?button('generate','Generate a billing period'):'')+panel('Recurring fee plans',table(['Unit','Category','Monthly amount','Due day','From','Until','Status',''],state.plans,p=>tr([esc(p.unit),esc(p.type),currency(p.amount),p.due_day,esc(p.start_period),esc(p.end_period||'Ongoing'),badge(p.active?'Active':'Stopped',p.active?'good':''),p.active&&writable()?button('stop-plan','Stop plan',false,`data-id="${p.id}"`):''])))+panel('Charge categories',state.types.map(t=>badge(t.name)).join(' '),writable()?button('type','Add category'):'');}
 function updateCharges(){$('#charge-table').innerHTML=table(['Unit','Category','Period','Due','Charge','Paid','Remaining','Status'],filtered('c'),c=>chargeRow(c));}
+function sentStatementLabel(row){
+  try{const saved=JSON.parse(row.snapshot_json||'{}');if(row.snapshot_json)return saved.unit_label||saved.title||'Statement';}
+  catch{}
+  return row.statement_unit||row.statement_title||'Statement';
+}
 const historySources={
-  statements:{title:'Statement history',headings:['Sent','Recipient','Statement','Status','Reason','Reference'],
+  statements:{title:'Statement history',headings:['Sent','Recipient','Statement','Status','Reason','Reference',''],
     records:()=>state.statement_sends||[],date:r=>r.created||'',status:r=>r.status||'',
-    search:r=>[r.phone,r.statement_unit,r.statement_title,r.detail].join(' '),
-    csv:r=>[r.created,r.phone,r.statement_unit||r.statement_title||'',r.status,r.detail||'',r.provider_ref||''],
-    render:r=>tr([esc(String(r.created||'').replace('T',' ').slice(0,19)),esc(r.phone),esc(r.statement_unit||r.statement_title||''),badge(r.status,messageTone(r.status)),`<div class="text-wrap">${esc(r.detail||r.mode||'—')}</div>`,esc(r.provider_ref||'—')])},
+    search:r=>[r.phone,sentStatementLabel(r),r.detail].join(' '),
+    csv:r=>[r.created,r.phone,sentStatementLabel(r),r.status,r.detail||'',r.provider_ref||''],
+    render:r=>tr([esc(String(r.created||'').replace('T',' ').slice(0,19)),esc(r.phone),esc(sentStatementLabel(r)),badge(r.status,messageTone(r.status)),`<div class="text-wrap">${esc(r.detail||r.mode||'—')}</div>`,esc(r.provider_ref||'—'),button('st-view-sent','View',false,`data-id="${r.id}"`)])},
   messages:{title:'Message history',headings:['Created','Recipient','Period / message','Status','Mode','Reference'],
     records:()=>state.messages||[],date:r=>r.created||'',status:r=>r.status||'',
     search:r=>[r.phone,r.body,r.status].join(' '),
@@ -235,22 +240,38 @@ function fillFromRecords(){
   statementDirty=true;
   toast('Filled from '+(unit.property||'')+' '+unit.label+'. Edit anything before saving.');
 }
-function previewStatement(){
-  const d=statementDraft;
+function statementViewMarkup(d){
   const head=d.columns.map(c=>`<th>${esc(c).replace(/\n/g,'<br>')}</th>`).join('');
   const body=d.rows.map(r=>`<tr><th>${esc(r.label)}</th>${r.cells.map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('');
-  $('#modal').innerHTML=`<header><h2>Statement preview</h2><button class="close" data-action="close" aria-label="Close dialog">×</button></header><div class="statement"><div class="brand-dark">OPULENT<small>Unlocking property opportunities</small></div><h1>${esc(d.title)}</h1><div class="f"><span>Client</span><b>${esc(d.client)}</b></div><div class="f"><span>Monthly Condo fee</span><b>${esc(d.monthly_fee)}</b></div><div class="f"><span>Statement Period</span><b>${esc(d.period)}</b></div><div class="f"><span>Total Payment Received</span><b>${esc(d.total_received)}</b></div><div class="f"><span>Total Amount Due</span><b>${esc(d.total_due)}</b></div><table><thead><tr><th></th>${head}</tr></thead><tbody>${body}</tbody></table><div class="notes"><b>NOTES:</b><ol>${d.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ol><div class="pay">${d.payment.map(p=>`<div>${esc(p)}</div>`).join('')}</div></div></div><footer>${button('close','Close')}</footer>`;
+  return `<div class="statement"><div class="brand-dark">OPULENT<small>Unlocking property opportunities</small></div><h1>${esc(d.title)}</h1><div class="f"><span>Client</span><b>${esc(d.client)}</b></div><div class="f"><span>Unit</span><b>${esc(d.unit_label)}</b></div><div class="f"><span>Monthly Condo fee</span><b>${esc(d.monthly_fee)}</b></div><div class="f"><span>Statement Period</span><b>${esc(d.period)}</b></div><div class="f"><span>Total Payment Received</span><b>${esc(d.total_received)}</b></div><div class="f"><span>Total Amount Due</span><b>${esc(d.total_due)}</b></div><table><thead><tr><th></th>${head}</tr></thead><tbody>${body}</tbody></table><div class="notes"><b>NOTES:</b><ol>${d.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ol><div class="pay">${d.payment.map(p=>`<div>${esc(p)}</div>`).join('')}</div></div></div>`;
+}
+function previewStatement(){
+  $('#modal').innerHTML=`<header><h2>Statement preview</h2><button class="close" data-action="close" aria-label="Close dialog">×</button></header>${statementViewMarkup(statementDraft)}<footer>${button('close','Close')}</footer>`;
   $('#modal').showModal();
+}
+function viewSentStatement(id){
+  const send=(state.statement_sends||[]).find(row=>row.id===+id);
+  if(!send){toast('Statement history record not found.');return;}
+  const saved=(state.statements||[]).find(row=>row.id===send.statement_id);
+  if(!send.snapshot_json&&!saved){toast('The saved statement is no longer available.');return;}
+  let statement;
+  try{statement=statementFromRow(send.snapshot_json?JSON.parse(send.snapshot_json):saved);}
+  catch{toast('This statement could not be opened.');return;}
+  const dialog=document.createElement('dialog');
+  dialog.className='statement-view-dialog';
+  dialog.innerHTML=`<header><h2>Sent statement</h2><button class="close" data-action="close-statement-view" aria-label="Close statement">×</button></header>${send.snapshot_json?'':'<p class="hint warning">This older history record has no saved copy. Showing the current saved statement.</p>'}${statementViewMarkup(statement)}<footer>${button('close-statement-view','Close')}</footer>`;
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+  document.body.appendChild(dialog);
+  dialog.showModal();
 }
 async function sendStatement(){
   captureStatement();
   const custom=($('#st-custom')?.value||'').trim();
   const phone=custom||($('#st-number')?.value||'');
   if(!phone){toast('Choose a registered number or type one.');return;}
-  if(!statementDraft.id){
-    const saved=await api('statement-save',{statement:statementDraft});
-    statementDraft.id=saved.id;statementDraft.token=saved.token;
-  }
+  // Send the fields currently visible in the builder, including a newly edited unit.
+  const saved=await api('statement-save',{statement:statementDraft});
+  statementDraft.id=saved.id;statementDraft.token=saved.token;statementDirty=false;
   const sent=await api('statement-send',{id:statementDraft.id,phone:phone});
   toast((sent.status==='accepted'||sent.status==='simulated')?('Statement '+sent.status+' to '+sent.phone+'.'):('Could not send to '+sent.phone+' ('+sent.status+'): '+(sent.detail||'no reason given')));
   await reload();
@@ -310,7 +331,7 @@ const tutorials={
 'Payments':{intro:'Record money you have received. Payments cover a unit’s oldest unpaid charges first, across all categories.',tasks:[['Record a payment','Click Record payment: choose the unit, the amount, the date received and a receipt or bank reference.'],['Understand allocation','The amount is applied oldest due date first. Anything left over stays as account credit and covers future charges.'],['Fix a mistake','Click Reverse, give a reason and save. The original entry stays in history; record the correct payment separately.']],tips:['Future payment dates are rejected.','After a connection error, retry the same form — a brand-new form could create a duplicate entry.']},
 'Reminders':{intro:'Preview and then send payment reminders to the contacts of unpaid charges.',tasks:[['Choose who to remind','Filter by month, unit, category or overdue, then tick the charges, or click Select outstanding.'],['Add your own wording','Type a notice in “Penalty notice” to add your own sentence to overdue charges (up to 300 characters).'],['Send','Click Preview selected, review each recipient, number, message and estimated cost, then confirm.'],['Check the result','Click Refresh status after about 15 seconds. Message history shows each attempt and its status.']],tips:['Automatic reminders always use primary numbers only; alternate numbers are manual-only.','If a balance or contact changes after preview, confirmation is refused — preview again.','Status meanings: accepted = the provider took the message; delivered = the handset received it; failed and unknown need attention.']},
 'Reports':{intro:'Balances by unit, plus the audit history for administrators.',tasks:[['See balances per unit','“Balances by unit” shows billed, paid against charges, remaining and any unallocated credit.'],['Export to a spreadsheet','Click Export balances to download a CSV you can open in Excel.'],['Review activity','Administrators see the latest 200 audit events: who did what, and when.']],tips:['Remaining is always derived from charges minus non-reversed allocations, so it stays current.']},
-'Statements':{intro:'Build a statement, send it by SMS as a link, and keep a history of what you sent.',tasks:[['Choose or build','Pick a saved statement from the list, or start a new one. Every field and table cell is editable.'],['Fill from records (optional)','Choose a unit and click Fill from records to copy its quarterly charges and payments into the table — then edit anything.'],['Save and preview','Click Save to keep it, and Preview to see exactly what the tenant will see.'],['Send','Choose a registered number (or type one like 0772 494 627) and press Send SMS. The tenant gets a link that opens the statement in any browser.'],['Check the history','The Statement history table below lists every send with its status.']],tips:['The link works in any browser and needs no login for the tenant.','Save the statement before sending so it has a link.','Links are permanent unless you set an expiry date.']},
+'Statements':{intro:'Build a statement, send it by SMS as a link, and keep a history of what you sent.',tasks:[['Choose or build','Pick a saved statement from the list, or start a new one. Every field and table cell is editable.'],['Fill from records (optional)','Choose a unit and click Fill from records to copy its quarterly charges and payments into the table — then edit anything.'],['Save and preview','Click Save to keep it, and Preview to see exactly what the tenant will see, including the unit.'],['Send','Choose a registered number (or type one like 0772 494 627) and press Send SMS. The tenant gets a link that opens the statement in any browser.'],['Check the history','The Statement history table lists every send. Click View to read the complete statement as it was when sent.']],tips:['The link works in any browser and needs no login for the tenant.','The View button opens a read-only copy of the sent statement.','Links are permanent unless you set an expiry date.']},
 'Settings':{intro:'Organisation preferences, reminder timing, staff accounts, your password and backups.',tasks:[['Set currency and timezone','Edit settings: currency, country, UTC offset and the price per SMS segment.'],['Turn automation on or off','“Automatic billing + reminders” controls whether the server sends on a schedule. Off means you send manually.'],['Choose reminder timing','Days before the due date, the overdue repeat interval, and quiet hours when nothing is sent automatically.'],['Add a staff member','Click Add staff, choose a role and an initial password.'],['Change your password','Click Change my password. This signs out all of your sessions.']],tips:['Currency is locked once financial records exist.','Automatic reminders use primary numbers only and skip quiet hours.','For the hosted system, database backups are managed by the hosting platform.']}
 };
 function openHelp(page){
@@ -380,6 +401,8 @@ document.addEventListener('click',async e=>{
     if(action==='filter-r'){updateReminderSelection();return;}
     if(action==='refresh'){await reload();return;}
     if(action==='history-all'){openHistory(target.dataset.kind);return;}
+    if(action==='st-view-sent'){viewSentStatement(id);return;}
+    if(action==='close-statement-view'){target.closest('dialog')?.close();return;}
     if(action==='hs-7'){setHistoryRange(7);return;}
     if(action==='hs-30'){setHistoryRange(30);return;}
     if(action==='hs-90'){setHistoryRange(90);return;}
