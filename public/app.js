@@ -178,7 +178,7 @@ function payments(){return '<div class="hint">Payments cover the oldest outstand
 function reminders(){return '<div class="hint warning">'+(sendingLive()?'Live sending is ON. Review recipients, periods, text and estimated cost before confirming — these messages go to real phones.':'Test mode: no SMS is sent. Review recipients, periods, text and estimated cost before confirming.')+'</div>'+panel('Select charges to remind',filters('r')+'<div id="reminder-table"></div>',button('select-all','Select outstanding'))+(writable()?panel('Manual notice and recipients',`<label for="penalty">Penalty notice (optional · overdue charges only)<textarea id="penalty" maxlength="300" placeholder="Enter the notice you want staff to communicate"></textarea></label><p class="small muted">This wording is added only to selected charges that are already overdue. It is never added automatically, and it does not deactivate a card or apply a financial penalty.</p>${button('penalty-example','Use elevator-card example')}<label class="check"><input id="include-alternate" type="checkbox">Also notify the registered alternate numbers for this manual reminder</label><p class="small muted">Primary numbers are selected by default. Alternate numbers appear separately in the preview. Automatic reminders use primary numbers only.</p>`):'')+historyPanel('messages')+`<p class="small muted">Automatic reminders: ${state.settings.automatic?'enabled':'disabled'}. The server checks every 15 seconds. ${button('refresh','Refresh status')}</p>`;}
 function updateReminderSelection(){$('#reminder-table').innerHTML=table(['','Unit','Category','Period','Due','Charge','Paid','Remaining','Status'],filtered('r').filter(c=>c.remaining>0),c=>chargeRow(c,true));}
 function reports(){return historyPanel('balances')+(admin()?historyPanel('audit'):'');}
-let statementDraft=null, statementDirty=false, statementSourceUnit=0;
+let statementDraft=null, statementDirty=false, statementSourceUnit=0, statementRecipientPhone='';
 function amountText(v){return (v/100).toLocaleString('en-US',{maximumFractionDigits:2});}
 function statementLink(token){return location.origin+'/s/'+token;}
 function area(name,label,value='',full=true){return `<label class="${full?'full':''}">${label}<textarea id="${name}" name="${name}">${esc(value)}</textarea></label>`;}
@@ -231,8 +231,11 @@ function fillFromRecords(){
     {label:'Payment received (UGX)',cells:received.map(cell)},
     {label:'Balance per quarter',cells:remaining.map(cell)},
     {label:'Cumulative Amount Due (UGX)',cells:cumulative.map(cell)}];
-  statementDraft.client=unit.owner||statementDraft.client;
+  const contacts=(state.contacts||[]).filter(c=>+c.unit_id===+unit.id&&+c.active!==0);
+  const contact=contacts.find(c=>c.kind==='Tenant'&&c.phone)||contacts.find(c=>c.kind==='Owner'&&c.phone)||contacts.find(c=>c.phone)||contacts[0];
+  statementDraft.client=contact?.name||unit.owner||'';
   statementDraft.unit_label=unit.label||'';
+  statementRecipientPhone=contact?.phone||'';
   statementDraft.title='CONDOMINIUM FEES STATEMENT FOR '+year+' ('+(unit.property||'Pacific Victorian')+')';
   statementDraft.period='Quarter 1, Quarter 2, Quarter 3, Quarter 4 ('+year+')';
   statementDraft.total_received=amountText(received.reduce((a,b)=>a+b,0));
@@ -281,28 +284,26 @@ function statements(){
   const d=statementDraft;
   const head=d.columns.map((c,i)=>`<th><textarea class="cell" id="st-col-${i}" rows="2">${esc(c)}</textarea></th>`).join('');
   const body=d.rows.map((r,ri)=>`<tr><th><input class="cell" id="st-row-${ri}" value="${esc(r.label)}"></th>${d.columns.map((_,ci)=>`<td><input class="cell" id="st-cell-${ri}-${ci}" value="${esc(r.cells[ci]||'')}"></td>`).join('')}</tr>`).join('');
-  const saved=state.statements||[];
-  const loader=select('st-load','Load a saved statement',[['','New / unsaved'],...saved.map(s=>[s.id,((s.title||'Statement').slice(0,40))+' · '+(s.unit_label?s.unit_label+' ':'')+'('+String(s.token||'').slice(0,6)+')'])],false,d.id||'');
   const source=select('st-source',"Fill from a unit's records",[['','Choose a unit'],...state.units.map(u=>[u.id,unitName(u)])],false,statementSourceUnit||'');
   const builder=panel('Statement builder',
     '<div class="hint">Every field is editable. The default layout is 5 rows by 5 columns. Save to keep it, then send it.</div>'+
-    `<div class="filters">${loader}${source}${button('st-fill','Fill from records')}${button('st-new','New statement')}</div>`+
+    `<div class="filters">${source}${button('st-fill','Refresh from records')}${button('st-new','New statement')}</div>`+
     `<div class="form">${field('st-title','Statement title','text',d.title,true,false)}${field('st-client','Client name','text',d.client,false,false)}${field('st-unit','Unit label','text',d.unit_label,false,false)}${field('st-fee','Monthly condo fee','text',d.monthly_fee,false,false)}${field('st-period','Statement period','text',d.period,false,false)}${field('st-received','Total payment received','text',d.total_received,false,false)}${field('st-due','Total amount due','text',d.total_due,false,false)}${field('st-expires','Link expiry (optional)','date',d.expires,false,false)}</div>`+
     `<div class="statement"><table class="editable"><thead><tr><th>Quarters</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`+
     `<div class="actions">${button('st-add-row','+ Row')}${button('st-add-col','+ Column')}</div>`+
     `<div class="form">${area('st-notes','Notes (one per line)',d.notes.join('\n'))}${area('st-payment','Payment details (one per line)',d.payment.join('\n'))}</div>`,
     button('st-save','Save')+button('st-preview','Preview',true));
   const send=panel('Send this statement',
-    `<div class="filters">${select('st-number','Registered numbers',[['','Choose a number'],...numberOptions()],false,'')}${field('st-custom','Or a custom number (e.g. 0772 494 627)','text','',false,false)}${button('st-send','Send SMS',true)}</div>`+
+    `<div class="filters">${select('st-number','Registered numbers',[['','Choose a number'],...numberOptions()],false,statementRecipientPhone)}${field('st-custom','Or a custom number (e.g. 0772 494 627)','text','',false,false)}${button('st-send','Send SMS',true)}</div>`+
     '<p class="small muted">'+(sendingLive()?'The SMS contains a link and is sent to a real phone.':'Test mode: the SMS is recorded but not sent.')+' '+(d.id?('Link: '+esc(statementLink(d.token))):'Save the statement first to create its link.')+'</p>');
   const history=historyPanel('statements');
   return builder+send+history;
 }
 function bindStatement(){
-  const load=$('#st-load');
-  if(load)load.addEventListener('change',()=>{const id=+load.value;statementDraft=id?statementFromRow((state.statements||[]).find(s=>s.id===id)):blankStatement();statementDirty=false;render();});
   const source=$('#st-source');
-  if(source)source.addEventListener('change',()=>{statementSourceUnit=+source.value;});
+  if(source)source.addEventListener('change',()=>{statementSourceUnit=+source.value;if(statementSourceUnit){fillFromRecords();render();}});
+  const number=$('#st-number');
+  if(number)number.addEventListener('change',()=>{statementRecipientPhone=number.value;});
   ['st-title','st-client','st-unit','st-fee','st-period','st-received','st-due','st-expires','st-notes','st-payment'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('input',()=>{statementDirty=true;});});
   document.querySelectorAll('.statement .cell').forEach(el=>el.addEventListener('input',()=>{statementDirty=true;}));
 }
@@ -331,7 +332,7 @@ const tutorials={
 'Payments':{intro:'Record money you have received. Payments cover a unit’s oldest unpaid charges first, across all categories.',tasks:[['Record a payment','Click Record payment: choose the unit, the amount, the date received and a receipt or bank reference.'],['Understand allocation','The amount is applied oldest due date first. Anything left over stays as account credit and covers future charges.'],['Fix a mistake','Click Reverse, give a reason and save. The original entry stays in history; record the correct payment separately.']],tips:['Future payment dates are rejected.','After a connection error, retry the same form — a brand-new form could create a duplicate entry.']},
 'Reminders':{intro:'Preview and then send payment reminders to the contacts of unpaid charges.',tasks:[['Choose who to remind','Filter by month, unit, category or overdue, then tick the charges, or click Select outstanding.'],['Add your own wording','Type a notice in “Penalty notice” to add your own sentence to overdue charges (up to 300 characters).'],['Send','Click Preview selected, review each recipient, number, message and estimated cost, then confirm.'],['Check the result','Click Refresh status after about 15 seconds. Message history shows each attempt and its status.']],tips:['Automatic reminders always use primary numbers only; alternate numbers are manual-only.','If a balance or contact changes after preview, confirmation is refused — preview again.','Status meanings: accepted = the provider took the message; delivered = the handset received it; failed and unknown need attention.']},
 'Reports':{intro:'Balances by unit, plus the audit history for administrators.',tasks:[['See balances per unit','“Balances by unit” shows billed, paid against charges, remaining and any unallocated credit.'],['Export to a spreadsheet','Click Export balances to download a CSV you can open in Excel.'],['Review activity','Administrators see the latest 200 audit events: who did what, and when.']],tips:['Remaining is always derived from charges minus non-reversed allocations, so it stays current.']},
-'Statements':{intro:'Build a statement, send it by SMS as a link, and keep a history of what you sent.',tasks:[['Choose or build','Pick a saved statement from the list, or start a new one. Every field and table cell is editable.'],['Fill from records (optional)','Choose a unit and click Fill from records to copy its quarterly charges and payments into the table — then edit anything.'],['Save and preview','Click Save to keep it, and Preview to see exactly what the tenant will see, including the unit.'],['Send','Choose a registered number (or type one like 0772 494 627) and press Send SMS. The tenant gets a link that opens the statement in any browser.'],['Check the history','The Statement history table lists every send. Click View to read the complete statement as it was when sent.']],tips:['The link works in any browser and needs no login for the tenant.','The View button opens a read-only copy of the sent statement.','Links are permanent unless you set an expiry date.']},
+'Statements':{intro:'Build a statement, send it by SMS as a link, and keep a history of what you sent.',tasks:[['Choose or build','Start a new statement or select a unit. Every field and table cell is editable.'],['Fill from records (optional)','Selecting a unit fills its client name, unit label, quarterly charges and payments, and registered phone when available. Use Refresh from records to recalculate after changes.'],['Save and preview','Click Save to keep it, and Preview to see exactly what the tenant will see, including the unit.'],['Send','Check the selected registered number (or type one like 0772 494 627) and press Send SMS. The tenant gets a link that opens the statement in any browser.'],['Check the history','The Statement history table lists every send. Click View to read the complete statement as it was when sent.']],tips:['The link works in any browser and needs no login for the tenant.','The View button opens a read-only copy of the sent statement.','Links are permanent unless you set an expiry date.']},
 'Settings':{intro:'Organisation preferences, reminder timing, staff accounts, your password and backups.',tasks:[['Set currency and timezone','Edit settings: currency, country, UTC offset and the price per SMS segment.'],['Turn automation on or off','“Automatic billing + reminders” controls whether the server sends on a schedule. Off means you send manually.'],['Choose reminder timing','Days before the due date, the overdue repeat interval, and quiet hours when nothing is sent automatically.'],['Add a staff member','Click Add staff, choose a role and an initial password.'],['Change your password','Click Change my password. This signs out all of your sessions.']],tips:['Currency is locked once financial records exist.','Automatic reminders use primary numbers only and skip quiet hours.','For the hosted system, database backups are managed by the hosting platform.']}
 };
 function openHelp(page){
@@ -413,7 +414,7 @@ document.addEventListener('click',async e=>{
     if(action==='help-page'){openHelp(target.dataset.page);return;}
     if(action==='toggle-password'){document.querySelectorAll('input.pw').forEach(i=>i.type=target.checked?'text':'password');return;}
     if(action==='print-statement'){window.print();return;}
-    if(action==='st-new'){statementDraft=blankStatement();statementDirty=false;statementSourceUnit=0;render();return;}
+    if(action==='st-new'){statementDraft=blankStatement();statementDirty=false;statementSourceUnit=0;statementRecipientPhone='';render();return;}
     if(action==='st-add-row'){captureStatement();statementDraft.rows.push({label:'',cells:statementDraft.columns.map(()=>'')});statementDirty=true;render();return;}
     if(action==='st-add-col'){captureStatement();statementDraft.columns.push('Quarter '+(statementDraft.columns.length+1));statementDraft.rows.forEach(r=>r.cells.push(''));statementDirty=true;render();return;}
     if(action==='st-fill'){fillFromRecords();render();return;}
