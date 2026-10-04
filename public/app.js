@@ -196,8 +196,8 @@ function blankStatement(){
   const labels=['Expected Payment','Payment received (UGX)','Balance per quarter','Cumulative Amount Due (UGX)'];
   return {id:0,token:'',title:'CONDOMINIUM FEES STATEMENT FOR '+state.today.slice(0,4)+' (Pacific Victorian)',client:'',unit_label:'',monthly_fee:'',period:'',total_received:'',total_due:'',expires:'',
     columns:columns,rows:labels.map(l=>({label:l,cells:columns.map(()=>'')})),
-    notes:['Kindly settle the outstanding balance to avoid penalties and service interruptions.','For inquiries, contact the Property Management Office.'],
-    payment:['Direct at Stanbic Bank: A/C No.: 9030026224704, A/C Name: Opulent Properties Ltd.','FlexiPay Merchant Code: 283797']};
+    notes:['Kindly settle the outstanding balance to avoid penalties and service interruptions.','For inquiries, contact the Property Management Office: 0744570620 OR 0770568161'],
+    payment:['Direct at Stanbic Bank: A/C No.: 9030026224704, A/C Name: Opulent Properties Ltd.','Flexi Pay. Dial *291# Follow prompt .... Merchant Code: 283797','Mobile Money direct to the Bank: MTN: *165*6*1*2*2 Account No. /AIRTEL *185*7# and follow prompt']};
 }
 function statementFromRow(s){
   const row=s||{};
