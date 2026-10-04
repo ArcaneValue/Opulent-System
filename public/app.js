@@ -194,9 +194,13 @@ function payments(){return '<div class="hint">Payments cover the oldest outstand
 function reminders(){return '<div class="hint warning">'+(sendingLive()?'Live sending is ON. Review recipients, periods, text and estimated cost before confirming — these messages go to real phones.':'Test mode: no SMS is sent. Review recipients, periods, text and estimated cost before confirming.')+'</div>'+panel('Select charges to remind',filters('r')+'<div id="reminder-table"></div>',button('select-all','Select outstanding'))+(writable()?panel('Manual notice and recipients',`<label for="penalty">Penalty notice (optional · overdue charges only)<textarea id="penalty" maxlength="300" placeholder="Enter the notice you want staff to communicate"></textarea></label><p class="small muted">This wording is added only to selected charges that are already overdue. It is never added automatically, and it does not deactivate a card or apply a financial penalty.</p>${button('penalty-example','Use elevator-card example')}<label class="check"><input id="include-alternate" type="checkbox">Also notify the registered alternate numbers for this manual reminder</label><p class="small muted">Primary numbers are selected by default. Alternate numbers appear separately in the preview. Automatic reminders use primary numbers only.</p>`):'')+historyPanel('messages')+`<p class="small muted">Automatic reminders: ${state.settings.automatic?'enabled':'disabled'}. The server checks every 15 seconds. ${button('refresh','Refresh status')}</p>`;}
 function updateReminderSelection(){$('#reminder-table').innerHTML=table(['','Unit','Category','Period','Due','Charge','Paid','Remaining','Status'],filtered('r').filter(c=>c.remaining>0),c=>chargeRow(c,true));}
 function reports(){return historyPanel('balances')+(admin()?historyPanel('audit'):'');}
-let statementDraft=null, statementDirty=false, statementSourceUnit=0, statementRecipientPhone='';
+let statementDraft=null, statementDirty=false, statementSourceUnit=0, statementRecipientPhone='', statementTitleManual=false;
 function amountText(v){return (v/100).toLocaleString('en-US',{maximumFractionDigits:2});}
 function statementLink(token){return location.origin+'/s/'+token;}
+function currentStatementYear(now=new Date()){
+  return String(new Date(now.getTime()+(Number(state.settings.utc_offset)||0)*60000).getUTCFullYear());
+}
+function statementTitle(year,property='Pacific Victorian'){return 'CONDOMINIUM FEES STATEMENT FOR '+year+' ('+property+')';}
 function area(name,label,value='',full=true){return `<label class="${full?'full':''}">${label}<textarea id="${name}" name="${name}">${esc(value)}</textarea></label>`;}
 function numberOptions(unitId=0){
   const seen=new Set(),out=[];
@@ -210,7 +214,7 @@ function numberOptions(unitId=0){
 function blankStatement(){
   const columns=['Quarter 1\nJan - Mar','Quarter 2\nApr - Jun','Quarter 3\nJul - Sep','Quarter 4\nOct - Dec'];
   const labels=['Expected Payment','Payment received (UGX)','Balance per quarter','Cumulative Amount Due (UGX)'];
-  return {id:0,token:'',title:'CONDOMINIUM FEES STATEMENT FOR '+state.today.slice(0,4)+' (Pacific Victorian)',client:'',unit_label:'',monthly_fee:'',period:'',total_received:'',total_due:'',expires:'',
+  return {id:0,token:'',title:statementTitle(currentStatementYear()),client:'',unit_label:'',monthly_fee:'',period:'',total_received:'',total_due:'',expires:'',
     columns:columns,rows:labels.map(l=>({label:l,cells:columns.map(()=>'')})),
     notes:['Kindly settle the outstanding balance to avoid penalties and service interruptions.','For inquiries, contact the Property Management Office: 0744570620 OR 0770568161'],
     payment:['Direct at Stanbic Bank: A/C No.: 9030026224704, A/C Name: Opulent Properties Ltd.','Flexi Pay. Dial *291# Follow prompt .... Merchant Code: 283797','Mobile Money direct to the Bank: MTN: *165*6*1*2*2 Account No. /AIRTEL *185*7# and follow prompt']};
@@ -234,7 +238,7 @@ function fillFromRecords(){
   const unit=state.units.find(u=>u.id===statementSourceUnit);
   if(!unit){toast('Choose a unit to fill from first.');return;}
   const found=String(statementDraft.title||'').match(/\d{4}/);
-  const year=found?found[0]:(state.today||'').slice(0,4);
+  const year=statementTitleManual&&found?found[0]:currentStatementYear();
   const charges=state.charges.filter(c=>c.unit_id===unit.id&&String(c.due||'').slice(0,4)===year);
   const quarter=due=>Math.floor((parseInt(String(due||'01').slice(5,7),10)-1)/3);
   const expected=[0,0,0,0],received=[0,0,0,0],remaining=[0,0,0,0],has=[false,false,false,false];
@@ -252,7 +256,7 @@ function fillFromRecords(){
   statementDraft.client=contact?.name||unit.owner||'';
   statementDraft.unit_label=unit.label||'';
   statementRecipientPhone=contact?.phone||'';
-  statementDraft.title='CONDOMINIUM FEES STATEMENT FOR '+year+' ('+(unit.property||'Pacific Victorian')+')';
+  statementDraft.title=statementTitle(year,unit.property||'Pacific Victorian');
   statementDraft.period='Quarter 1, Quarter 2, Quarter 3, Quarter 4 ('+year+')';
   statementDraft.total_received=amountText(received.reduce((a,b)=>a+b,0));
   statementDraft.total_due=state.settings.currency+' '+amountText(cumulative[3]||0);
@@ -298,6 +302,7 @@ async function sendStatement(){
 function statements(){
   if(!statementDraft) statementDraft=blankStatement();
   const d=statementDraft;
+  if(!d.id&&!statementDirty&&!statementTitleManual&&!statementSourceUnit&&d.title!==statementTitle(currentStatementYear()))d.title=statementTitle(currentStatementYear());
   const head=d.columns.map((c,i)=>`<th><textarea class="cell" id="st-col-${i}" rows="2">${esc(c)}</textarea></th>`).join('');
   const body=d.rows.map((r,ri)=>`<tr><th><input class="cell" id="st-row-${ri}" value="${esc(r.label)}"></th>${d.columns.map((_,ci)=>`<td><input class="cell" id="st-cell-${ri}-${ci}" value="${esc(r.cells[ci]||'')}"></td>`).join('')}</tr>`).join('');
   const source=select('st-source',"Fill from a unit's records",[['','Choose a unit'],...state.units.map(u=>[u.id,unitName(u)])],false,statementSourceUnit||'');
@@ -320,7 +325,7 @@ function bindStatement(){
   if(source)source.addEventListener('change',()=>{statementSourceUnit=+source.value;if(statementSourceUnit){fillFromRecords();render();}});
   const number=$('#st-number');
   if(number)number.addEventListener('change',()=>{statementRecipientPhone=number.value;});
-  ['st-title','st-client','st-unit','st-fee','st-period','st-received','st-due','st-expires','st-notes','st-payment'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('input',()=>{statementDirty=true;});});
+  ['st-title','st-client','st-unit','st-fee','st-period','st-received','st-due','st-expires','st-notes','st-payment'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('input',()=>{statementDirty=true;if(id==='st-title')statementTitleManual=true;});});
   document.querySelectorAll('.statement .cell').forEach(el=>el.addEventListener('input',()=>{statementDirty=true;}));
 }
 function autoRefresh(){
@@ -436,7 +441,7 @@ document.addEventListener('click',async e=>{
     if(action==='help-page'){openHelp(target.dataset.page);return;}
     if(action==='toggle-password'){document.querySelectorAll('input.pw').forEach(i=>i.type=target.checked?'text':'password');return;}
     if(action==='print-statement'){window.print();return;}
-    if(action==='st-new'){statementDraft=blankStatement();statementDirty=false;statementSourceUnit=0;statementRecipientPhone='';render();return;}
+    if(action==='st-new'){statementDraft=blankStatement();statementDirty=false;statementSourceUnit=0;statementRecipientPhone='';statementTitleManual=false;render();return;}
     if(action==='st-add-row'){captureStatement();statementDraft.rows.push({label:'',cells:statementDraft.columns.map(()=>'')});statementDirty=true;render();return;}
     if(action==='st-add-col'){captureStatement();statementDraft.columns.push('Quarter '+(statementDraft.columns.length+1));statementDraft.rows.forEach(r=>r.cells.push(''));statementDirty=true;render();return;}
     if(action==='st-fill'){fillFromRecords();render();return;}
