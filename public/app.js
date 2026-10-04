@@ -194,7 +194,7 @@ function numberOptions(){
 function blankStatement(){
   const columns=['Quarter 1\nJan - Mar','Quarter 2\nApr - Jun','Quarter 3\nJul - Sep','Quarter 4\nOct - Dec'];
   const labels=['Expected Payment','Payment received (UGX)','Balance per quarter','Cumulative Amount Due (UGX)'];
-  return {id:0,token:'',title:'CONDO FEES STATEMENT FOR '+state.today.slice(0,4),client:'',unit_label:'',monthly_fee:'',period:'',total_received:'',total_due:'',expires:'',
+  return {id:0,token:'',title:'CONDOMINIUM FEES STATEMENT FOR '+state.today.slice(0,4)+' (Pacific Victorian)',client:'',unit_label:'',monthly_fee:'',period:'',total_received:'',total_due:'',expires:'',
     columns:columns,rows:labels.map(l=>({label:l,cells:columns.map(()=>'')})),
     notes:['Kindly settle the outstanding balance to avoid penalties and service interruptions.','For inquiries, contact the Property Management Office.'],
     payment:['Direct at Stanbic Bank: A/C No.: 9030026224704, A/C Name: Opulent Properties Ltd.','FlexiPay Merchant Code: 283797']};
@@ -233,7 +233,7 @@ function fillFromRecords(){
     {label:'Cumulative Amount Due (UGX)',cells:cumulative.map(cell)}];
   statementDraft.client=unit.owner||statementDraft.client;
   statementDraft.unit_label=unit.label||'';
-  statementDraft.title='CONDO FEES STATEMENT FOR '+year+': Unit No: '+(unit.label||'');
+  statementDraft.title='CONDOMINIUM FEES STATEMENT FOR '+year+' ('+(unit.property||'Pacific Victorian')+')';
   statementDraft.period='Quarter 1, Quarter 2, Quarter 3, Quarter 4 ('+year+')';
   statementDraft.total_received=amountText(received.reduce((a,b)=>a+b,0));
   statementDraft.total_due=state.settings.currency+' '+amountText(cumulative[3]||0);
