@@ -94,17 +94,21 @@ Do not enter both approaches for the same balance. That would count it twice. Da
 
 ## 8. Record payments, credit and corrections
 
-Open **Payments → Record payment**. Select the unit, amount, date received and receipt/bank reference. Future payment dates are rejected.
+Open **Payments → Record payment**. Select the unit, check or edit the client name, choose a year and quarter (for example `2026-Q4`), enter the amount, date received and bank reference, then check the registered phone or enter a custom one. Recording the payment does not send an SMS. Future payment dates are rejected.
 
 The system allocates money to that unit's oldest outstanding charge by due date, then by charge creation order. It allocates across charge categories. This policy is fixed in the pilot; you cannot select a particular charge or category to allocate to yet.
+
+The chosen quarter is a label on the receipt, not an allocation instruction. The receipt shows which charges actually received the money, the balance immediately after the payment, and the periods and due dates of charges still unpaid. It is a saved snapshot, so later charges and payments do not rewrite it.
 
 For a UGX 350,000 charge and a UGX 200,000 payment, the remaining balance becomes UGX 150,000. A payment larger than all outstanding charges leaves **unallocated credit**, automatically applied when new charges are created.
 
 If an entry is wrong, click **Reverse**, enter a reason and save. The original record remains with a Reversed status. Its allocations stop counting; other available unit credit may cover the reopened charges. Record the correct payment separately.
 
+To text a receipt, find the payment in **Payment history** and click **Send receipt**. Check the number, review the SMS and estimated cost, then confirm. The SMS contains a link to a read-only receipt that opens in a browser without a client account. **View** opens the same receipt for staff. If a payment is reversed, its receipt shows that it is void and cannot be sent again. Older payments recorded before receipt snapshots were introduced do not have a historical receipt; the system cannot reconstruct their original after-payment balance reliably.
+
 Payment submissions have a request identifier to protect retries of the same form. After a connection error, retry within the existing form or inspect payment history before starting a new one. Receipt references are not globally unique because a receipt may represent several units; the system cannot identify a duplicate manually entered through a completely new form.
 
-This records received money; it does not collect payments, connect to mobile money or issue automated SMS receipts.
+This records received money; it does not collect payments or connect to mobile money. Receipt SMS is a separate staff-confirmed action, never automatic on payment entry. Provider acceptance is not proof of handset delivery; check the latest SMS status on the payment row.
 
 ## 9. Test phone numbers and manual reminders
 
@@ -127,7 +131,7 @@ Each opted-in recipient number receives a separate simulated message per selecte
 
 If a payment or recipient changes after preview, confirmation is rejected and you must preview again. If it changes after queueing but before processing, the queued message is cancelled instead of sending stale information. Retrying confirmation for the same preview does not duplicate messages; a new preview is a new deliberate send and can repeat the message.
 
-**Testing actual phone delivery requires a future provider integration and your explicit authorization to send live test messages.** You will need a provider account, sender approval where required, server-side credentials, verified test recipients, provider pricing and delivery callback configuration. There is no live-send toggle or hidden provider key in this pilot.
+Live phone delivery uses the configured SMS provider when the server is in live mode. Send only to an authorized test number, review the exact message and estimated cost, and check the provider status afterwards. **Accepted** means the provider took the SMS; it does not prove delivery to the handset.
 
 ## 10. Automatic reminders
 

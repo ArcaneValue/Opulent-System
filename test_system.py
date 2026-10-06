@@ -55,6 +55,49 @@ class FinancialTests(unittest.TestCase):
         with self.assertRaises(server.Problem):
             self.payment('200001')
 
+    def test_receipt_preserves_balance_and_needs_a_preview_before_sending(self):
+        self.charge('100', '2026-09', '2026-09-30')
+        recorded = self.mutate('payments', {'unit_id':1,'amount':'40','paid_on':'2026-09-20',
+                                           'reference':'BANK-1','request_key':'receipt-1',
+                                           'client_name':'Test tenant','billing_period':'2026-Q3',
+                                           'receipt_phone':'+256700000001'})
+        with server.connect() as c:
+            payment = c.execute('SELECT * FROM payments WHERE id=?', (recorded['id'],)).fetchone()
+            receipt = json.loads(payment['receipt_snapshot'])
+            self.assertEqual((receipt['amount'],receipt['balance_after'],receipt['outstanding'][0]['due']), (4000,6000,'2026-09-30'))
+            self.assertIn('Test tenant',server.receipt_page(receipt))
+        with patch.dict(os.environ, {'OPULENT_LIVE_SMS_ENABLED':'false'}, clear=False):
+            preview = self.mutate('receipt-preview', {'id':recorded['id']})
+            self.assertEqual(preview['phone'], '+256700000001')
+            self.assertIn('/r/', preview['body'])
+            sent = self.mutate('receipt-send', {'token':preview['token']})
+        self.assertEqual(sent['status'], 'simulated')
+        with self.assertRaises(server.Problem):
+            self.mutate('receipt-send', {'token':preview['token']})
+        self.mutate('reverse', {'id':recorded['id'],'reason':'Correction'})
+        with server.connect() as c:
+            payment = c.execute('SELECT * FROM payments WHERE id=?', (recorded['id'],)).fetchone()
+            self.assertEqual(json.loads(payment['receipt_snapshot'])['balance_after'],6000)
+            self.assertIn('receipt is void',server.receipt_page(json.loads(payment['receipt_snapshot']),True))
+        with self.assertRaises(server.Problem):
+            self.mutate('receipt-preview', {'id':recorded['id']})
+
+    def test_receipt_live_send_tracks_provider_acceptance_and_delivery(self):
+        recorded = self.mutate('payments', {'unit_id':1,'amount':'10','paid_on':'2026-09-20',
+                                           'reference':'BANK-3','request_key':'receipt-live',
+                                           'client_name':'Test tenant','billing_period':'2026-Q3',
+                                           'receipt_phone':'+256700000001'})
+        env={'OPULENT_LIVE_SMS_ENABLED':'true','OPULENT_PUBLIC_URL':'https://opulent.example',
+             'EGOSMS_USERNAME':'test-user','EGOSMS_API_KEY':'test-key'}
+        with patch.dict(os.environ, env, clear=False), patch('egosms._http_post', return_value={'Status':'OK','Cost':35,'MsgFollowUpUniqueCode':'RECEIPT-CODE'}):
+            preview=self.mutate('receipt-preview', {'id':recorded['id']})
+            self.assertIn('https://opulent.example/r/', preview['body'])
+            sent=self.mutate('receipt-send', {'token':preview['token']})
+        self.assertEqual(sent['status'],'accepted')
+        with server.connect(True) as c:
+            self.assertEqual(server.apply_delivery_report(c, {'MsgFollowUpUniqueCode':'RECEIPT-CODE','Status':'Success'}),1)
+            self.assertEqual(c.execute('SELECT status FROM payment_receipt_sends').fetchone()['status'],'delivered')
+
     def test_oldest_first_and_overpayment_credit_covers_future_charge(self):
         self.charge('100','2026-08','2026-08-30')
         self.charge('100','2026-09','2026-09-30',2)
@@ -499,6 +542,25 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(status,200)
         self.assertIn('STATEMENT TITLE', text)
         self.assertEqual(self.request('GET','/s/doesnotexist')[0],404)
+
+    def test_public_receipt_page_needs_no_login_and_shows_payment(self):
+        self.setup()
+        self.assertEqual(self.request('POST','/api/properties',{'name':'Test building','address':'Fictional'})[0],200)
+        self.assertEqual(self.request('POST','/api/units',{'property_id':1,'owner':'Owner','label':'A01'})[0],200)
+        _,state=self.request('GET','/api/state')
+        paid_on=state['today']
+        status,recorded=self.request('POST','/api/payments',{'unit_id':1,'amount':'1500000','paid_on':paid_on,
+                            'reference':'BANK-2','request_key':'public-receipt','client_name':'Client','billing_period':paid_on[:4]+'-Q1'})
+        self.assertEqual(status,200)
+        _,state=self.request('GET','/api/state')
+        token=next(p for p in state['payments'] if p['id']==recorded['id'])['receipt_token']
+        self.request('POST','/api/logout',{})
+        status,page=self.request('GET','/r/'+token)
+        text=page if isinstance(page,str) else page.decode('utf-8')
+        self.assertEqual(status,200)
+        self.assertIn('Payment receipt',text)
+        self.assertIn('1,500,000.00',text)
+        self.assertEqual(self.request('GET','/r/doesnotexist')[0],404)
 
     def test_self_service_registration_creates_an_administrator(self):
         self.setup()
