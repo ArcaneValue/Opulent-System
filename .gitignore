@@ -3,7 +3,9 @@ backups/
 __pycache__/
 *.pyc
 work/
+output/
 outputs/
+tmp/
 .venv/
 .env
 .env.*
