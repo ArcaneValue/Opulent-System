@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.11.1 checks
+
+The statement builder keeps its row labels and quarter headers with empty cells, and "Fill from records" leaves quarters without charges blank rather than writing N/A. The full suite (62 tests) passes and JavaScript syntax is checked with `node --check`.
+
 ## Version 1.11.0 checks
 
 The payment and password-change defects that broke the hosted PostgreSQL database were fixed and verified against the live database inside a rolled-back transaction; the PostgreSQL suite also runs in CI on every push. New tests cover comma-separated amounts. The full suite (62 tests) passes and JavaScript syntax is checked with `node --check`. Displayed dates use DD/MM/YYYY, money fields group thousands, the statement table starts empty, and statements and receipts can be printed.

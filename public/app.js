@@ -248,8 +248,8 @@ function numberOptions(unitId=0){
   return out;
 }
 function blankStatement(){
-  const columns=['','','',''];
-  const labels=['','','',''];
+  const columns=['Quarter 1\nJan - Mar','Quarter 2\nApr - Jun','Quarter 3\nJul - Sep','Quarter 4\nOct - Dec'];
+  const labels=['Expected Payment','Payment received (UGX)','Balance per quarter','Cumulative Amount Due (UGX)'];
   return {id:0,token:'',title:statementTitle(currentStatementYear()),client:'',unit_label:'',monthly_fee:'',period:'',total_received:'',total_due:'',expires:'',
     columns:columns,rows:labels.map(l=>({label:l,cells:columns.map(()=>'')})),
     notes:['Kindly settle the outstanding balance to avoid penalties and service interruptions.','For inquiries, contact the Property Management Office: 0744570620 OR 0770568161'],
@@ -280,7 +280,7 @@ function fillFromRecords(){
   const expected=[0,0,0,0],received=[0,0,0,0],remaining=[0,0,0,0],has=[false,false,false,false];
   charges.forEach(c=>{const i=quarter(c.due);has[i]=true;expected[i]+=c.amount;received[i]+=c.paid;remaining[i]+=c.remaining;});
   let running=0;const cumulative=remaining.map(v=>{running+=v;return running;});
-  const cell=(values,i)=>has[i]?amountText(values[i]):'N/A';
+  const cell=(values,i)=>has[i]?amountText(values[i]):'';
   statementDraft.columns=['Quarter 1\nJan - Mar','Quarter 2\nApr - Jun','Quarter 3\nJul - Sep','Quarter 4\nOct - Dec'];
   statementDraft.rows=[
     {label:'Expected Payment',cells:expected.map(cell)},

@@ -1,4 +1,8 @@
-# Implementation notes — 1.11.0 fixes, formats and printing
+# Implementation notes — 1.11.1 statement table defaults
+
+## Version 1.11.1 statement table keeps its labels but drops N/A
+
+The statement builder keeps its structure: the row labels (Expected Payment, Payment received, Balance per quarter, Cumulative Amount Due) and the quarter column headers remain. Only the cell contents are empty, and "Fill from records" now leaves a quarter blank instead of writing N/A when that quarter has no charges.
 
 ## Version 1.11.0 hosted payment fix, dates, money and printing
 
