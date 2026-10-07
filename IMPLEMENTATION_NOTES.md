@@ -1,4 +1,14 @@
-# Implementation notes — 1.11.1 statement table defaults
+# Implementation notes — 1.12.0 unit numbers replace the contacts page
+
+## Version 1.12.0 registered numbers live on the unit; contacts page removed
+
+The **Contacts page is gone**. Units now carry a **registered phone number** and an **alternate number**, entered in the Add unit form (and changed with the new **Edit** action on a unit row). The Units table shows both numbers; the Properties table is unchanged.
+
+Reminders, receipts, statements and the message history still work because each unit keeps one background contact that **mirrors** its numbers: saving a unit with a number updates that contact (creating it if the unit had none), and existing contact numbers were copied up onto their unit by an additive migration. Units that already had several contacts keep them, so those numbers keep receiving quietly.
+
+The `contacts` API routes remain for internal use; only the page was removed.
+
+Statement and receipt documents now label the name field **Condominium Owner** instead of Client.
 
 ## Version 1.11.1 statement table keeps its labels but drops N/A
 

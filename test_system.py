@@ -449,6 +449,22 @@ class FinancialTests(unittest.TestCase):
         with self.assertRaises(server.Problem):
             server.money('1,23,4.5.6')
 
+    def test_unit_registered_number_mirrors_to_a_contact(self):
+        self.mutate('units', {'property_id':1,'owner':'Jane Doe','label':'B07','phone':'+256772494627','alternate_phone':'+256700000009'})
+        with server.connect() as c:
+            unit = server.rows(c, "SELECT id,phone,alternate_phone FROM units WHERE label='B07'")[0]
+            self.assertEqual((unit['phone'], unit['alternate_phone']), ('+256772494627', '+256700000009'))
+            linked = server.rows(c, 'SELECT phone,alternate_phone,notify FROM contacts WHERE unit_id=?', (unit['id'],))
+            self.assertEqual(len(linked), 1)
+            self.assertEqual((linked[0]['phone'], linked[0]['alternate_phone'], linked[0]['notify']), ('+256772494627', '+256700000009', 1))
+        self.mutate('units', {'id':unit['id'],'owner':'Jane Doe','label':'B07','phone':'+256700000010'})
+        with server.connect() as c:
+            linked = server.rows(c, 'SELECT phone FROM contacts WHERE unit_id=?', (unit['id'],))
+            self.assertEqual(len(linked), 1)
+            self.assertEqual(linked[0]['phone'], '+256700000010')
+        with self.assertRaises(server.Problem):
+            self.mutate('units', {'property_id':1,'label':'B08','phone':'0772494627'})
+
     def test_staff_email_and_password_reuse_are_refused(self):
         self.mutate('staff', {'name':'Alpha','email':'alpha@example.test','password':'AlphaPassword123!','role':'admin'})
         with self.assertRaises(server.Problem):

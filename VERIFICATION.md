@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.12.0 checks
+
+New tests confirm a unit's registered number and alternate are stored on the unit, that they mirror onto a single background contact (created when absent, updated rather than duplicated afterwards), and that an invalid number is refused. The Contacts page is removed; the contacts routes remain for internal use. Statements and receipts show "Condominium Owner". The full suite passes and JavaScript syntax is checked with `node --check`.
+
 ## Version 1.11.1 checks
 
 The statement builder keeps its row labels and quarter headers with empty cells, and "Fill from records" leaves quarters without charges blank rather than writing N/A. The full suite (62 tests) passes and JavaScript syntax is checked with `node --check`.
