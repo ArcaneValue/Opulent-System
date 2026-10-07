@@ -7,7 +7,7 @@
 .statement table{width:100%;border-collapse:collapse;margin:6px 0}
 .statement th,.statement td{text-align:left;border-bottom:1px solid #e6edf2;padding:7px 6px;font-size:14px}
 .statement .totals{display:flex;flex-wrap:wrap;gap:22px;margin-top:18px;font-weight:600}
-@media print{body *{visibility:hidden}#statement,#statement *{visibility:visible}#statement{position:absolute;left:0;top:0;width:100%;border:0;margin:0;padding:0}}
+@media print{body *{visibility:hidden}#statement,#statement *,#print-area,#print-area *{visibility:visible}#statement,#print-area{position:absolute;left:0;top:0;width:100%;border:0;margin:0;padding:0;max-height:none;overflow:visible}dialog::backdrop{background:transparent}}
 .statement .cell{width:100%;border:1px solid #e2e9ef;border-radius:6px;padding:7px;font-size:14px;margin:0;background:#fff}
 .statement textarea.cell{min-height:46px;resize:vertical}
 .statement table.editable th:first-child{width:230px}

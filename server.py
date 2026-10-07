@@ -29,7 +29,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get('OPULENT_DB', str(ROOT / 'data' / 'opulent.sqlite3')))
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
-VERSION = '1.10.0-pilot'
+VERSION = '1.11.0-pilot'
 LOCK = threading.RLock()
 FAILED_LOGINS = {}
 
@@ -142,7 +142,7 @@ def number(d, key, low=1, high=2147483647):
 
 def money(value):
     try:
-        amount = Decimal(str(value))
+        amount = Decimal(str(value).replace(',', '').strip())
         if not amount.is_finite() or amount <= 0 or amount > Decimal('1000000000000') or amount * 100 != (amount * 100).to_integral():
             raise Problem('Amount must be positive with at most two decimal places.')
         return int(amount * 100)
@@ -442,8 +442,8 @@ def receipt_snapshot(c, payment_id):
     outstanding = rows(c, '''SELECT ch.period,ch.due,t.name type,ch.remaining FROM charge_balances ch
                              JOIN charge_types t ON t.id=ch.type_id
                              WHERE ch.unit_id=? AND ch.remaining>0 ORDER BY ch.due,ch.id''', (payment['unit_id'],))
-    credit = int(c.execute('''SELECT COALESCE(SUM(p.amount-COALESCE((SELECT SUM(a.amount) FROM allocations a WHERE a.payment_id=p.id),0)),0)
-                               FROM payments p WHERE p.unit_id=? AND p.reversed=0''', (payment['unit_id'],)).fetchone()[0])
+    credit = int(c.execute('''SELECT COALESCE(SUM(p.amount-COALESCE((SELECT SUM(a.amount) FROM allocations a WHERE a.payment_id=p.id),0)),0) AS total
+                               FROM payments p WHERE p.unit_id=? AND p.reversed=0''', (payment['unit_id'],)).fetchone()['total'])
     return {'payment_id': payment_id, 'property': payment['property'], 'unit': payment['unit'],
             'client': payment['client_name'], 'billing_period': payment['billing_period'],
             'paid_on': payment['paid_on'], 'reference': payment['reference'], 'currency': settings(c)['currency'],
@@ -839,7 +839,7 @@ def mutate(c, route, d, user):
             raise Problem('That password is already in use on another account. Choose a different password.', 409)
         c.execute('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)', (text(d, 'name'), email, password_hash(d.get('password')), role))
     elif route == 'password':
-        stored = c.execute('SELECT password FROM users WHERE id=?', (user['id'],)).fetchone()[0]
+        stored = c.execute('SELECT password FROM users WHERE id=?', (user['id'],)).fetchone()['password']
         if not password_ok(d.get('current_password'), stored):
             raise Problem('Current password is incorrect.')
         if password_reused(c, d.get('new_password')):

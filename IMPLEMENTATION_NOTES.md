@@ -1,4 +1,12 @@
-# Implementation notes — 1.9.1 statement history view
+# Implementation notes — 1.11.0 fixes, formats and printing
+
+## Version 1.11.0 hosted payment fix, dates, money and printing
+
+Recording a payment on the hosted **PostgreSQL** database failed with the generic "operation failed" message. A recent change added payment receipts and read a database value by position (`fetchone()[0]`), which works on SQLite but raises `KeyError: 0` on PostgreSQL, where rows come back as dictionaries. The same pattern in the change-password route was fixed too. Both were verified against the hosted database inside a transaction that was then rolled back, and the PostgreSQL suite runs in CI.
+
+Displayed dates now use **DD/MM/YYYY** (with the time where one is shown). Money inputs accept and format **thousands separators** (150,000), and the amount parser tolerates commas. The statement builder's default table now starts **empty** so it can be filled in. Statements and receipts gained a **Print / Save as PDF** button, and the print stylesheet prints only the document. The unit's **Add contact** action now asks only for the **number**, carrying name, type, reminders and billing start across from the unit's existing contact.
+
+## Version 1.9.1 statement history view
 
 ## Version 1.9.1 statement unit and read-only history view
 

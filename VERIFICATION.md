@@ -1,5 +1,9 @@
 # Verification — pilot
 
+## Version 1.11.0 checks
+
+The payment and password-change defects that broke the hosted PostgreSQL database were fixed and verified against the live database inside a rolled-back transaction; the PostgreSQL suite also runs in CI on every push. New tests cover comma-separated amounts. The full suite (62 tests) passes and JavaScript syntax is checked with `node --check`. Displayed dates use DD/MM/YYYY, money fields group thousands, the statement table starts empty, and statements and receipts can be printed.
+
 ## Version 1.9.0 checks
 
 Updates activate immediately and the page reloads automatically when it is safe to do so, otherwise it offers an Apply now button. The compact plus View all pattern now covers Properties, Units, Contacts and Balances by unit, with search and a status filter where applicable and no date controls on non-dated lists. The full suite (58 tests) passes and JavaScript syntax is checked with `node --check`.

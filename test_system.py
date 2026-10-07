@@ -443,6 +443,12 @@ class FinancialTests(unittest.TestCase):
         with self.assertRaises(server.Problem):
             self.mutate('contacts', {'unit_label':'C08','name':'No property','phone':'+256700000022','kind':'Tenant','notify':1,'billing_start':'2025-05-17'})
 
+    def test_money_accepts_thousands_separators(self):
+        self.assertEqual(server.money('150,000'), 15000000)
+        self.assertEqual(server.money('1,234.50'), 123450)
+        with self.assertRaises(server.Problem):
+            server.money('1,23,4.5.6')
+
     def test_staff_email_and_password_reuse_are_refused(self):
         self.mutate('staff', {'name':'Alpha','email':'alpha@example.test','password':'AlphaPassword123!','role':'admin'})
         with self.assertRaises(server.Problem):

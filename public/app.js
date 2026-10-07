@@ -53,7 +53,7 @@ function headingActions(){
 }
 function body(){return {'Dashboard':dashboard,'Properties & Units':properties,'Contacts':contacts,'Charges':charges,'Payments':payments,'Reminders':reminders,'Reports':reports,'Statements':statements,'Settings':preferences,'Guided Demo':guidedDemo,'User Guide':guide}[page]();}
 function chargeStatus(ch){return ch.remaining===0?badge('Paid','good'):ch.due<state.today?badge('Overdue','bad'):badge('Outstanding','warn');}
-function chargeRow(ch,checkbox=false){return tr([...(checkbox?[`<input type="checkbox" name="charge" value="${ch.id}" aria-label="Select ${esc(ch.unit)} ${esc(ch.type)} ${esc(ch.period)}">`]:[]),`${esc(ch.unit)}<div class="small muted">${esc(ch.property)}</div>`,esc(ch.type),esc(ch.period),esc(ch.due),currency(ch.amount),currency(ch.paid),currency(ch.remaining),chargeStatus(ch)]);}
+function chargeRow(ch,checkbox=false){return tr([...(checkbox?[`<input type="checkbox" name="charge" value="${ch.id}" aria-label="Select ${esc(ch.unit)} ${esc(ch.type)} ${esc(ch.period)}">`]:[]),`${esc(ch.unit)}<div class="small muted">${esc(ch.property)}</div>`,esc(ch.type),esc(ch.period),esc(fmtDate(ch.due)),currency(ch.amount),currency(ch.paid),currency(ch.remaining),chargeStatus(ch)]);}
 function dashboard(){
   const month=state.today.slice(0,7), monthly=state.charges.filter(c=>c.period===month), total=arr=>arr.reduce((n,c)=>n+c,0);
   const overdue=state.charges.filter(c=>c.remaining>0&&c.due<state.today), attention=state.charges.filter(c=>c.remaining>0).slice(0,8);
@@ -78,23 +78,23 @@ const historySources={
   statements:{title:'Statement history',headings:['Sent','Recipient','Statement','Status','Reason','Reference',''],
     records:()=>state.statement_sends||[],date:r=>r.created||'',status:r=>r.status||'',
     search:r=>[r.phone,sentStatementLabel(r),r.detail].join(' '),
-    csv:r=>[r.created,r.phone,sentStatementLabel(r),r.status,r.detail||'',r.provider_ref||''],
-    render:r=>tr([esc(String(r.created||'').replace('T',' ').slice(0,19)),esc(r.phone),esc(sentStatementLabel(r)),badge(r.status,messageTone(r.status)),`<div class="text-wrap">${esc(r.detail||r.mode||'—')}</div>`,esc(r.provider_ref||'—'),button('st-view-sent','View',false,`data-id="${r.id}"`)])},
+    csv:r=>[fmtDate(r.created,true),r.phone,sentStatementLabel(r),r.status,r.detail||'',r.provider_ref||''],
+    render:r=>tr([esc(fmtDate(r.created,true)),esc(r.phone),esc(sentStatementLabel(r)),badge(r.status,messageTone(r.status)),`<div class="text-wrap">${esc(r.detail||r.mode||'—')}</div>`,esc(r.provider_ref||'—'),button('st-view-sent','View',false,`data-id="${r.id}"`)])},
   messages:{title:'Message history',headings:['Created','Recipient','Period / message','Status','Mode','Reference'],
     records:()=>state.messages||[],date:r=>r.created||'',status:r=>r.status||'',
     search:r=>[r.phone,r.body,r.status].join(' '),
-    csv:r=>[r.created,r.phone,r.body,r.status,r.mode,r.provider_ref||''],
-    render:r=>tr([esc(String(r.created||'').replace('T',' ').slice(0,19)),esc(r.phone),`<div class="text-wrap">${esc(r.body)}</div>`,badge(r.status,messageTone(r.status)),esc(r.mode),esc(r.provider_ref||'—')])},
+    csv:r=>[fmtDate(r.created,true),r.phone,r.body,r.status,r.mode,r.provider_ref||''],
+    render:r=>tr([esc(fmtDate(r.created,true)),esc(r.phone),`<div class="text-wrap">${esc(r.body)}</div>`,badge(r.status,messageTone(r.status)),esc(r.mode),esc(r.provider_ref||'—')])},
   audit:{title:'Audit history',headings:['Time (UTC)','Staff','Action','Detail'],
     records:()=>state.audit||[],date:r=>r.created||'',status:()=>'',
     search:r=>[r.actor,r.action,r.detail].join(' '),
-    csv:r=>[r.created,r.actor,r.action,r.detail],
-    render:r=>tr([esc(r.created),esc(r.actor),esc(r.action),`<div class="text-wrap">${esc(r.detail)}</div>`])},
+    csv:r=>[fmtDate(r.created,true),r.actor,r.action,r.detail],
+    render:r=>tr([esc(fmtDate(r.created,true)),esc(r.actor),esc(r.action),`<div class="text-wrap">${esc(r.detail)}</div>`])},
   payments:{title:'Payment history',headings:['Date','Unit / client','Quarter','Reference','Received','Allocated','Credit','Status','Receipt'],
     records:()=>state.payments||[],date:r=>r.paid_on||'',status:r=>r.reversed?'Reversed':'Recorded',
     search:r=>[r.unit,r.client_name,r.billing_period,r.reference,r.paid_on].join(' '),
-    csv:r=>[r.paid_on,[r.unit,r.client_name].filter(Boolean).join(' / '),r.billing_period||'',r.reference,(r.amount/100),r.reversed?'':r.allocated/100,r.reversed?'':(r.amount-r.allocated)/100,r.reversed?'Reversed':'Recorded',''],
-    render:r=>{const latest=(state.receipt_sends||[]).find(s=>+s.payment_id===+r.id);return tr([esc(r.paid_on),esc(r.unit)+(r.client_name?'<div class="small muted">'+esc(r.client_name)+'</div>':''),esc(r.billing_period||'—'),esc(r.reference),currency(r.amount),r.reversed?'—':currency(r.allocated),r.reversed?'—':currency(r.amount-r.allocated),badge(r.reversed?'Reversed':'Recorded',r.reversed?'bad':'good')+(r.reversed?'':writable()?' '+button('reverse','Reverse',false,`data-id="${r.id}"`):''),r.receipt_token?`<a class="button" href="/r/${encodeURIComponent(r.receipt_token)}" target="_blank" rel="noopener">View</a> ${!r.reversed&&writable()?button('receipt-open','Send receipt',true,`data-id="${r.id}"`):''}${latest?'<div class="small muted">Last SMS: '+esc(latest.status)+'</div>':''}`:'Unavailable for older payments']);}},
+    csv:r=>[fmtDate(r.paid_on),[r.unit,r.client_name].filter(Boolean).join(' / '),r.billing_period||'',r.reference,(r.amount/100),r.reversed?'':r.allocated/100,r.reversed?'':(r.amount-r.allocated)/100,r.reversed?'Reversed':'Recorded',''],
+    render:r=>{const latest=(state.receipt_sends||[]).find(s=>+s.payment_id===+r.id);return tr([esc(fmtDate(r.paid_on)),esc(r.unit)+(r.client_name?'<div class="small muted">'+esc(r.client_name)+'</div>':''),esc(r.billing_period||'—'),esc(r.reference),currency(r.amount),r.reversed?'—':currency(r.allocated),r.reversed?'—':currency(r.amount-r.allocated),badge(r.reversed?'Reversed':'Recorded',r.reversed?'bad':'good')+(r.reversed?'':writable()?' '+button('reverse','Reverse',false,`data-id="${r.id}"`):''),r.receipt_token?`<a class="button" href="/r/${encodeURIComponent(r.receipt_token)}" target="_blank" rel="noopener">View</a> ${!r.reversed&&writable()?button('receipt-open','Send receipt',true,`data-id="${r.id}"`):''}${latest?'<div class="small muted">Last SMS: '+esc(latest.status)+'</div>':''}`:'Unavailable for older payments']);}},
   properties:{title:'Properties',headings:['Property','Address','Units'],tableClass:'',
     records:()=>state.properties||[],date:null,status:null,
     search:r=>[r.name,r.address].join(' '),csv:r=>[r.name,r.address],
@@ -112,8 +112,8 @@ const historySources={
   contacts:{title:'Registered contacts',headings:['Name','Type','Unit','Primary phone','Alternate phone','Billing start','Notifications','Status','Actions'],tableClass:'row-actions',
     records:()=>state.contacts||[],date:null,status:r=>r.active?'Active':'Inactive',
     search:r=>[r.name,r.phone,r.alternate_phone,r.unit].join(' '),
-    csv:r=>[r.name,r.kind,r.unit,r.phone,r.alternate_phone||'',r.billing_start||'',r.notify?'Enabled':'Disabled',r.active?'Active':'Inactive'],
-    render:r=>tr([esc(r.name),esc(r.kind),esc(r.unit),esc(r.phone),esc(r.alternate_phone||'—'),esc(r.billing_start||'Not recorded'),r.notify?'Enabled':'Disabled',badge(r.active?'Active':'Inactive',r.active?'good':''),writable()?`${button('contact-edit','Edit',true,`data-id="${r.id}"`)} ${button('contact-toggle',r.active?'Deactivate':'Activate',false,`data-id="${r.id}"`)} ${button('notify-toggle',r.notify?'Mute SMS':'Enable SMS',false,`data-id="${r.id}"`)}`:''])},
+    csv:r=>[r.name,r.kind,r.unit,r.phone,r.alternate_phone||'',fmtDate(r.billing_start),r.notify?'Enabled':'Disabled',r.active?'Active':'Inactive'],
+    render:r=>tr([esc(r.name),esc(r.kind),esc(r.unit),esc(r.phone),esc(r.alternate_phone||'—'),esc(fmtDate(r.billing_start)||'Not recorded'),r.notify?'Enabled':'Disabled',badge(r.active?'Active':'Inactive',r.active?'good':''),writable()?`${button('contact-edit','Edit',true,`data-id="${r.id}"`)} ${button('contact-toggle',r.active?'Deactivate':'Activate',false,`data-id="${r.id}"`)} ${button('notify-toggle',r.notify?'Mute SMS':'Enable SMS',false,`data-id="${r.id}"`)}`:''])},
   balances:{title:'Balances by unit',headings:['Property','Unit','Billed','Paid against charges','Remaining','Unallocated credit'],tableClass:'',
     records:()=>state.units||[],date:null,status:null,
     search:r=>[r.property,r.label].join(' '),
@@ -197,9 +197,9 @@ function openReceiptSend(id){
 }
 function showReceiptPreview(preview){
   const receipt=preview.snapshot;
-  const due=receipt.outstanding.length?`<ul>${receipt.outstanding.map(item=>`<li>${esc(item.type)} · ${esc(item.period)} · due ${esc(item.due)} · ${currency(item.remaining)}</li>`).join('')}</ul>`:'<p>No unpaid charges at the time this payment was recorded.</p>';
+  const due=receipt.outstanding.length?`<ul>${receipt.outstanding.map(item=>`<li>${esc(item.type)} · ${esc(item.period)} · due ${esc(fmtDate(item.due))} · ${currency(item.remaining)}</li>`).join('')}</ul>`:'<p>No unpaid charges at the time this payment was recorded.</p>';
   const dialog=$('#modal');
-  dialog.innerHTML=`<header><h2>Review receipt SMS</h2><button class="close" data-action="close" aria-label="Close dialog">×</button></header><div class="hint warning">${preview.mode==='live'?'Confirming sends one real SMS.':'Test mode: no SMS reaches the phone.'} Provider acceptance does not prove delivery.</div><p><b>Recipient:</b> ${esc(preview.phone)}<br><b>Client:</b> ${esc(receipt.client)} · ${esc(receipt.unit)}<br><b>Quarter label:</b> ${esc(receipt.billing_period)}<br><b>Paid:</b> ${currency(receipt.amount)}<br><b>Balance after payment:</b> ${currency(receipt.balance_after)}</p><h3>Outstanding due dates</h3>${due}<h3>SMS text</h3><p class="preview-card">${esc(preview.body)}</p><p class="small muted">Estimated SMS cost: ${currency(preview.estimated_cost)}. Preview expires in 10 minutes.</p><div class="error" id="receipt-error"></div><footer>${button('close','Cancel')}${button('receipt-confirm',preview.mode==='live'?'Send receipt SMS':'Confirm test receipt',true)}</footer>`;
+  dialog.innerHTML=`<header><h2>Review receipt SMS</h2><button class="close" data-action="close" aria-label="Close dialog">×</button></header><div id="print-area"><div class="hint warning">${preview.mode==='live'?'Confirming sends one real SMS.':'Test mode: no SMS reaches the phone.'} Provider acceptance does not prove delivery.</div><p><b>Recipient:</b> ${esc(preview.phone)}<br><b>Client:</b> ${esc(receipt.client)} · ${esc(receipt.unit)}<br><b>Quarter label:</b> ${esc(receipt.billing_period)}<br><b>Paid:</b> ${currency(receipt.amount)}<br><b>Balance after payment:</b> ${currency(receipt.balance_after)}</p><h3>Outstanding due dates</h3>${due}<h3>SMS text</h3><p class="preview-card">${esc(preview.body)}</p></div><p class="small muted">Estimated SMS cost: ${currency(preview.estimated_cost)}. Preview expires in 10 minutes.</p><div class="error" id="receipt-error"></div><footer>${button('close','Cancel')}${button('print-receipt','Print',false)}${button('receipt-confirm',preview.mode==='live'?'Send receipt SMS':'Confirm test receipt',true)}</footer>`;
 }
 function historyCSV(){
   const spec=historySources[historyKind],list=historyFiltered(historyKind);
@@ -214,6 +214,24 @@ function updateReminderSelection(){$('#reminder-table').innerHTML=table(['','Uni
 function reports(){return historyPanel('balances')+(admin()?historyPanel('audit'):'');}
 let statementDraft=null, statementDirty=false, statementSourceUnit=0, statementRecipientPhone='', statementTitleManual=false;
 function amountText(v){return (v/100).toLocaleString('en-US',{maximumFractionDigits:2});}
+function fmtDate(value,withTime=false){
+  const s=String(value==null?'':value).trim();
+  if(!s)return '';
+  const m=s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}:\d{2}))?/);
+  if(!m)return s;
+  return m[3]+'/'+m[2]+'/'+m[1]+(withTime&&m[4]?' '+m[4]:'');
+}
+function formatMoneyInput(el){
+  const raw=String(el.value||'').replace(/,/g,'');
+  if(!/^\d*\.?\d*$/.test(raw)){el.value=raw.replace(/[^\d.]/g,'');return;}
+  const parts=raw.split('.');
+  const grouped=(parts[0]||'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  el.value=(parts.length>1)?grouped+'.'+parts[1]:grouped;
+}
+function bindMoneyFields(){document.querySelectorAll('#record-form [data-money]').forEach(el=>{el.addEventListener('input',()=>formatMoneyInput(el));el.addEventListener('blur',()=>formatMoneyInput(el));});}
+function moneyField(name,label,value='',full=false,required=true){
+  return `<label class="${full?'full':''}">${label}<input id="${name}" name="${name}" type="text" inputmode="decimal" data-money value="${esc(value)}" autocomplete="off" ${required?'required':''}></label>`;
+}
 function statementLink(token){return location.origin+'/s/'+token;}
 function currentStatementYear(now=new Date()){
   return String(new Date(now.getTime()+(Number(state.settings.utc_offset)||0)*60000).getUTCFullYear());
@@ -230,8 +248,8 @@ function numberOptions(unitId=0){
   return out;
 }
 function blankStatement(){
-  const columns=['Quarter 1\nJan - Mar','Quarter 2\nApr - Jun','Quarter 3\nJul - Sep','Quarter 4\nOct - Dec'];
-  const labels=['Expected Payment','Payment received (UGX)','Balance per quarter','Cumulative Amount Due (UGX)'];
+  const columns=['','','',''];
+  const labels=['','','',''];
   return {id:0,token:'',title:statementTitle(currentStatementYear()),client:'',unit_label:'',monthly_fee:'',period:'',total_received:'',total_due:'',expires:'',
     columns:columns,rows:labels.map(l=>({label:l,cells:columns.map(()=>'')})),
     notes:['Kindly settle the outstanding balance to avoid penalties and service interruptions.','For inquiries, contact the Property Management Office: 0744570620 OR 0770568161'],
@@ -287,7 +305,7 @@ function statementViewMarkup(d){
   return `<div class="statement"><div class="brand-dark">OPULENT<small>Unlocking property opportunities</small></div><h1>${esc(d.title)}</h1><div class="f"><span>Client</span><b>${esc(d.client)}</b></div><div class="f"><span>Unit</span><b>${esc(d.unit_label)}</b></div><div class="f"><span>Monthly Condo fee</span><b>${esc(d.monthly_fee)}</b></div><div class="f"><span>Statement Period</span><b>${esc(d.period)}</b></div><div class="f"><span>Total Payment Received</span><b>${esc(d.total_received)}</b></div><div class="f"><span>Total Amount Due</span><b>${esc(d.total_due)}</b></div><table><thead><tr><th></th>${head}</tr></thead><tbody>${body}</tbody></table><div class="notes"><b>NOTES:</b><ol>${d.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ol><div class="pay">${d.payment.map(p=>`<div>${esc(p)}</div>`).join('')}</div></div></div>`;
 }
 function previewStatement(){
-  $('#modal').innerHTML=`<header><h2>Statement preview</h2><button class="close" data-action="close" aria-label="Close dialog">×</button></header>${statementViewMarkup(statementDraft)}<footer>${button('close','Close')}</footer>`;
+  $('#modal').innerHTML=`<header><h2>Statement preview</h2><button class="close" data-action="close" aria-label="Close dialog">×</button></header><div id="print-area">${statementViewMarkup(statementDraft)}</div><footer>${button('close','Close')}${button('print-statement','Print / Save as PDF',true)}</footer>`;
   $('#modal').showModal();
 }
 function viewSentStatement(id){
@@ -300,7 +318,7 @@ function viewSentStatement(id){
   catch{toast('This statement could not be opened.');return;}
   const dialog=document.createElement('dialog');
   dialog.className='statement-view-dialog';
-  dialog.innerHTML=`<header><h2>Sent statement</h2><button class="close" data-action="close-statement-view" aria-label="Close statement">×</button></header>${send.snapshot_json?'':'<p class="hint warning">This older history record has no saved copy. Showing the current saved statement.</p>'}${statementViewMarkup(statement)}<footer>${button('close-statement-view','Close')}</footer>`;
+  dialog.innerHTML=`<header><h2>Sent statement</h2><button class="close" data-action="close-statement-view" aria-label="Close statement">×</button></header>${send.snapshot_json?'':'<p class="hint warning">This older history record has no saved copy. Showing the current saved statement.</p>'}<div id="print-area">${statementViewMarkup(statement)}</div><footer>${button('close-statement-view','Close')}${button('print-statement','Print / Save as PDF',true)}</footer>`;
   dialog.addEventListener('close',()=>dialog.remove(),{once:true});
   document.body.appendChild(dialog);
   dialog.showModal();
@@ -418,7 +436,8 @@ function bindPaymentRecipient(){
 }
 function showForm(title,route,fields,defaults={},hint=''){
   const dialog=$('#modal');if(dialog.open)dialog.close();dialog.innerHTML=`<header><h2>${esc(title)}</h2><button class="close" data-action="close" aria-label="Close dialog">×</button></header>${hint?`<div class="hint">${hint}</div>`:''}<form id="record-form"><div class="form">${fields}</div><div class="error" id="form-error"></div><footer>${button('close','Cancel',false,'type="button"')}${button('none','Save',true,'type="submit"')}</footer></form>`;dialog.showModal();
-  $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const submit=e.target.querySelector('[type=submit]');submit.disabled=true;try{const result=await api(route,{...defaults,...Object.fromEntries(new FormData(e.target))});dialog.close();if(route==='password'){state=null;authScreen('signin');toast('Password updated. Sign in with your new password.');}else{await reload();toast(result.created!==undefined?`${result.created} new charge(s) generated.`:'Saved successfully.');}}catch(err){$('#form-error').textContent=err.message;}finally{submit.disabled=false;}});
+  bindMoneyFields();
+  $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const submit=e.target.querySelector('[type=submit]');submit.disabled=true;try{document.querySelectorAll('#record-form [data-money]').forEach(el=>{el.value=String(el.value||'').replace(/,/g,'').trim();});const result=await api(route,{...defaults,...Object.fromEntries(new FormData(e.target))});dialog.close();if(route==='password'){state=null;authScreen('signin');toast('Password updated. Sign in with your new password.');}else{await reload();toast(result.created!==undefined?`${result.created} new charge(s) generated.`:'Saved successfully.');}}catch(err){$('#form-error').textContent=err.message;}finally{submit.disabled=false;}});
 }
 function forms(action,id){
   const month=state.today.slice(0,7);
@@ -428,17 +447,32 @@ function forms(action,id){
   if(action==='contact-for-unit'){
     const unit=state.units.find(u=>u.id===+id);
     if(!unit){toast('Unit not found. Refresh and try again.');return;}
-    showForm('Add contact to '+unit.label,'contacts',`<input type="hidden" name="unit_id" value="${unit.id}">`+select('kind','Contact type',[['Tenant','Tenant'],['Owner','Owner']])+field('name','Full name')+field('phone','Phone number (international)','tel')+field('alternate_phone','Alternate phone number (optional)','tel','',false,false)+select('notify','Should receive reminders?',[['1','Yes'],['0','No']],true,'1')+field('billing_start','Start of billing period (exact date)','date'),{},'This contact will be linked to '+esc(unit.property)+' / '+esc(unit.label)+'. The unit itself will not be duplicated.');
+    // Only the number is asked for. Name, type, reminders and billing start are carried
+    // over from the contact already on this unit (or the owner on the unit record).
+    const existing=(state.contacts||[]).filter(c=>+c.unit_id===+unit.id)[0];
+    const name=(existing&&existing.name)||unit.owner||'';
+    const kind=(existing&&existing.kind)||'Tenant';
+    const notify=(existing&&existing.notify!=null)?existing.notify:1;
+    const start=(existing&&existing.billing_start)||state.today;
+    showForm('Add a number to '+unitName(unit),'contacts',
+      `<input type="hidden" name="unit_id" value="${unit.id}">`
+      +`<input type="hidden" name="kind" value="${esc(kind)}">`
+      +`<input type="hidden" name="notify" value="${notify}">`
+      +`<input type="hidden" name="billing_start" value="${esc(start)}">`
+      +(name?`<input type="hidden" name="name" value="${esc(name)}">`:field('name','Name'))
+      +field('phone','Number (international)','tel')
+      +field('alternate_phone','Alternate number (optional)','tel','',false,false),
+      {}, 'Only the number is needed. '+(name?'Name, type, reminders and billing start are carried over automatically. ':'')+'The unit itself is not duplicated.');
   }
   if(action==='type')showForm('Add charge category','types',field('name','Category name','text','',true));
-  if(action==='plan')showForm('Set monthly recurring fee','plans',unitSelect()+typeSelect()+field('amount','Monthly amount','number')+select('due_day','Due day',Array.from({length:31},(_,i)=>[i+1,i+1]),true,30)+field('start_period','First billing period','month',month)+field('end_period','Last period (optional)','month','',false,false),{},'Plans do not change existing charges. Generate a period to apply them now. Due days beyond a month’s length use its last day.');
-  if(action==='charge')showForm('Add charge / historical arrears','charges',unitSelect()+typeSelect()+field('period','Original billing period','month',month)+field('due','Due date','date',state.today)+field('amount','Charge amount','number')+field('source','Reason / source','text','Manual charge'),{},'Enter original billed amounts and record their payments separately. Alternatively enter only the unpaid historical amount and describe it as opening arrears; do not also import the same original charge.');
+  if(action==='plan')showForm('Set monthly recurring fee','plans',unitSelect()+typeSelect()+moneyField('amount','Monthly amount')+select('due_day','Due day',Array.from({length:31},(_,i)=>[i+1,i+1]),true,30)+field('start_period','First billing period','month',month)+field('end_period','Last period (optional)','month','',false,false),{},'Plans do not change existing charges. Generate a period to apply them now. Due days beyond a month’s length use its last day.');
+  if(action==='charge')showForm('Add charge / historical arrears','charges',unitSelect()+typeSelect()+field('period','Original billing period','month',month)+field('due','Due date','date',state.today)+moneyField('amount','Charge amount')+field('source','Reason / source','text','Manual charge'),{},'Enter original billed amounts and record their payments separately. Alternatively enter only the unpaid historical amount and describe it as opening arrears; do not also import the same original charge.');
   if(action==='generate')showForm('Generate monthly charges','generate',field('period','Billing period','month',month,true),{},'Uses active plans. Running the same period again never duplicates a unit/category charge.');
   if(action==='payment'){
     const quarter='Q'+(Math.floor((Number(state.today.slice(5,7))-1)/3)+1);
     const year=state.today.slice(0,4);
     const choices=Array.from({length:6},(_,i)=>Number(year)-i).flatMap(y=>[1,2,3,4].map(q=>`<option value="${y}-Q${q}"></option>`)).join('');
-    showForm('Record received payment','payments',unitSelect()+field('client_name','Client name (editable)')+'<datalist id="payment-names"></datalist>'+`<label>Payment quarter<input id="billing_period" name="billing_period" list="payment-quarters" value="${year}-${quarter}" required placeholder="YYYY-Q1"><datalist id="payment-quarters">${choices}</datalist></label>`+field('amount','Amount received','number')+field('paid_on','Date received','date',state.today)+field('reference','Receipt / bank reference')+select('registered_phone','Registered phone',[['','No registered number']],false)+field('receipt_phone','Or custom receipt phone (optional)','tel','',false,false),{request_key:crypto.randomUUID()},'The selected quarter labels the receipt. Payment is allocated to the oldest unpaid charges first. Check the client and phone; recording does not send an SMS. After saving, use Send receipt on the payment row.');
+    showForm('Record received payment','payments',unitSelect()+field('client_name','Client name (editable)')+'<datalist id="payment-names"></datalist>'+`<label>Payment quarter<input id="billing_period" name="billing_period" list="payment-quarters" value="${year}-${quarter}" required placeholder="YYYY-Q1"><datalist id="payment-quarters">${choices}</datalist></label>`+moneyField('amount','Amount received')+field('paid_on','Date received','date',state.today)+field('reference','Receipt / bank reference')+select('registered_phone','Registered phone',[['','No registered number']],false)+field('receipt_phone','Or custom receipt phone (optional)','tel','',false,false),{request_key:crypto.randomUUID()},'The selected quarter labels the receipt. Payment is allocated to the oldest unpaid charges first. Check the client and phone; recording does not send an SMS. After saving, use Send receipt on the payment row.');
     bindPaymentRecipient();
   }
   if(action==='reverse')showForm('Reverse payment','reverse',field('reason','Reason for reversal','text','',true),{id:+id},'This restores balances covered by the payment. The original record remains visible.');
@@ -500,6 +534,7 @@ document.addEventListener('click',async e=>{
     if(action==='help-page'){openHelp(target.dataset.page);return;}
     if(action==='toggle-password'){document.querySelectorAll('input.pw').forEach(i=>i.type=target.checked?'text':'password');return;}
     if(action==='print-statement'){window.print();return;}
+    if(action==='print-receipt'){window.print();return;}
     if(action==='st-new'){statementDraft=blankStatement();statementDirty=false;statementSourceUnit=0;statementRecipientPhone='';statementTitleManual=false;render();return;}
     if(action==='st-add-row'){captureStatement();statementDraft.rows.push({label:'',cells:statementDraft.columns.map(()=>'')});statementDirty=true;render();return;}
     if(action==='st-add-col'){captureStatement();statementDraft.columns.push('Quarter '+(statementDraft.columns.length+1));statementDraft.rows.forEach(r=>r.cells.push(''));statementDirty=true;render();return;}
